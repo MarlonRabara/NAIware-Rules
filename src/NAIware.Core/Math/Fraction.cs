@@ -127,6 +127,10 @@ public class Fraction : ICloneable, IFraction
 
     #region Operator Overloads
 
+    /// <summary>Adds two fractions.</summary>
+    /// <param name="x">The left operand.</param>
+    /// <param name="y">The right operand.</param>
+    /// <returns>The sum, or <c>null</c> if either operand is <c>null</c>.</returns>
     public static Fraction? operator +(Fraction? x, Fraction? y)
     {
         if (x is null || y is null) return null;
@@ -135,6 +139,10 @@ public class Fraction : ICloneable, IFraction
         return xcopy;
     }
 
+    /// <summary>Subtracts the right fraction from the left.</summary>
+    /// <param name="x">The left operand.</param>
+    /// <param name="y">The right operand.</param>
+    /// <returns>The difference, or <c>null</c> if either operand is <c>null</c>.</returns>
     public static Fraction? operator -(Fraction? x, Fraction? y)
     {
         if (x is null || y is null) return null;
@@ -143,6 +151,10 @@ public class Fraction : ICloneable, IFraction
         return xcopy;
     }
 
+    /// <summary>Divides the left fraction by the right.</summary>
+    /// <param name="x">The dividend.</param>
+    /// <param name="y">The divisor.</param>
+    /// <returns>The quotient, or <c>null</c> if either operand is <c>null</c>.</returns>
     public static Fraction? operator /(Fraction? x, Fraction? y)
     {
         if (x is null || y is null) return null;
@@ -151,6 +163,10 @@ public class Fraction : ICloneable, IFraction
         return xcopy;
     }
 
+    /// <summary>Multiplies two fractions.</summary>
+    /// <param name="x">The left operand.</param>
+    /// <param name="y">The right operand.</param>
+    /// <returns>The product, or <c>null</c> if either operand is <c>null</c>.</returns>
     public static Fraction? operator *(Fraction? x, Fraction? y)
     {
         if (x is null || y is null) return null;
@@ -159,6 +175,10 @@ public class Fraction : ICloneable, IFraction
         return xcopy;
     }
 
+    /// <summary>Multiplies a fraction by a decimal value.</summary>
+    /// <param name="x">The fraction operand.</param>
+    /// <param name="y">The decimal multiplier.</param>
+    /// <returns>The product, or <c>null</c> if <paramref name="x"/> is <c>null</c>.</returns>
     public static Fraction? operator *(Fraction? x, decimal y)
     {
         if (x is null) return null;
@@ -167,6 +187,9 @@ public class Fraction : ICloneable, IFraction
         return xcopy;
     }
 
+    /// <summary>Negates the fraction (flips the sign).</summary>
+    /// <param name="x">The fraction to negate.</param>
+    /// <returns>The negated fraction, or <c>null</c> if <paramref name="x"/> is <c>null</c>.</returns>
     public static Fraction? operator !(Fraction? x)
     {
         if (x is null) return null;

@@ -134,9 +134,9 @@ public class Engine : EngineBase
             do
             {
                 // Single parameter token → multiply by 1 to create expression
-                if (tokens.Count > 0 && Parameters.ContainsKey(tokens[0]))
+                if (tokens.Count > 0 && Parameters!.ContainsKey(tokens[0]))
                 {
-                    expstack.Push(Factory.GetExpression<MathOperator, decimal>(this, tokens[0], new MathOperator("*"), "1"));
+                    expstack.Push(Factory.GetExpression<MathOperator, decimal>(this, tokens[0], new MathOperator("*"), "1")!);
                     tokens.RemoveAt(0);
                     if (tokens.Count == 0)
                         break;
@@ -150,10 +150,10 @@ public class Engine : EngineBase
                     !(expstack.Peek() is string && expstack.Peek()!.ToString() == "(") &&
                     ((parenthesisOpNesting.Count > 0 && currentParenNestingLevel == parenthesisOpNesting.Peek()) || parenthesisOpNesting.Count == 0))
                 {
-                    object rhs = expstack.Pop();
+                    object? rhs = expstack.Pop();
                     mathop = expstack.Pop() as MathOperator;
 
-                    object lhs;
+                    object? lhs;
                     if (mathop!.Text == "-" && (expstack.Count == 0 || expstack.Peek() is MathOperator))
                     {
                         lhs = "0";
@@ -182,7 +182,7 @@ public class Engine : EngineBase
                 if (operationstack.Count > 0 && operationstack.Peek() is string s && s == ")")
                 {
                     expstack.Pop(); // discard ")"
-                    object pareninner = expstack.Pop();
+                    object? pareninner = expstack.Pop();
                     if (pareninner is IExpression<decimal> innerformula)
                     {
                         innerformula.HasLeftParenthesis = true;
@@ -272,7 +272,7 @@ public class Engine : EngineBase
 
         if (expstack.Count == 1)
         {
-            object evaluatedValue = expstack.Pop();
+            object? evaluatedValue = expstack.Pop();
             if (evaluatedValue is not ExpressionNode<decimal>)
             {
                 if (evaluatedValue?.ToString()?.ToLower() == "null")

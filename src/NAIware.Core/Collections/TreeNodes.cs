@@ -5,6 +5,7 @@ namespace NAIware.Core.Collections;
 /// </summary>
 public class TreeNodes : List<TreeNode>
 {
+    /// <summary>The parent tree node.</summary>
     protected ITreeNode<object>? _parent;
 
     /// <summary>

@@ -17,7 +17,7 @@ public class MethodMap : Dictionary<string, IMethodWrapper>
     }
 
     /// <summary>Adds a method wrapper to the map.</summary>
-    public void Add(string methodName, IMethodWrapper methodWrapper)
+    public new void Add(string methodName, IMethodWrapper methodWrapper)
     {
         base.Add(GetKey(methodName), methodWrapper);
     }

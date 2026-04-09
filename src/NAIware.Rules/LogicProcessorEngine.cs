@@ -201,7 +201,7 @@ public sealed class LogicProcessorEngine
                 if (!isSimplified) isSimplified = true;
 
                 if (token == "," && methodState is not null && methodState.IsInMethod(expressionStack))
-                    methodState.AddParameterDelimiter(',', expressionStack.Peek());
+                    methodState.AddParameterDelimiter(',', expressionStack.Peek()!);
 
                 if ((methodState is not null && !methodState.IsReadyForExecution) ||
                     (methodState is null && token == ")"))
@@ -224,11 +224,11 @@ public sealed class LogicProcessorEngine
                             expressionStackItem = new GenericValue<decimal>(expressionVal);
                     }
 
-                    methodparameters.Insert(0, ((IValue)expressionStackItem).Value);
+                    methodparameters.Insert(0, ((IValue)expressionStackItem!).Value);
                 }
 
                 methodToExecute = expressionStack.Pop() as IMethodWrapper;
-                var methodResult = methodToExecute!.ExecuteMethod(methodparameters.ToArray());
+                var methodResult = methodToExecute!.ExecuteMethod(methodparameters.ToArray()!);
                 if (expressionStack.Count > 0 && Helper.IsMathOperator(expressionStack.Peek() as string))
                     expressionStack.Push(methodResult?.ToString());
                 else
@@ -241,7 +241,7 @@ public sealed class LogicProcessorEngine
             if (Helper.IsMathOperator(token) && expressionStack.Peek() is IValue nextExpressionStackValue)
             {
                 if (nextExpressionStackValue.Type != typeof(bool))
-                    expressionStack.Push(((IValue)expressionStack.Pop()).Value.ToString());
+                    expressionStack.Push(((IValue)expressionStack.Pop()!).Value.ToString());
             }
 
             if (expressionStack.Count == 0 || !(expressionStack.Peek() is IValue && token == ","))
@@ -254,7 +254,7 @@ public sealed class LogicProcessorEngine
             ruleOrFormulaTokens = [];
             while (expressionStack.Count > 0)
             {
-                object expressionItem = expressionStack.Pop();
+                object? expressionItem = expressionStack.Pop();
                 string? formulaItem;
                 if (expressionItem is string s)
                     formulaItem = s;
@@ -268,7 +268,7 @@ public sealed class LogicProcessorEngine
             expressionStack.Push(new GenericValue<decimal?>(EvaluateFormula(ruleOrFormulaTokens)));
         }
 
-        return TypeHelper.Convert<T>(((IValue)expressionStack.Pop()).Value)!;
+        return TypeHelper.Convert<T>(((IValue)expressionStack.Pop()!).Value)!;
     }
 
     private bool IsRuleOrFormulaComplete(List<string> ruleOrFormulaTokens, int tokenIndex, List<string> allTokens)

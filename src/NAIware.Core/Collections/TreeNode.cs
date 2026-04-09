@@ -5,8 +5,11 @@ namespace NAIware.Core.Collections;
 /// </summary>
 public class TreeNode : ITreeNode<object>
 {
+    /// <summary>The value stored in this node.</summary>
     protected object? _value;
+    /// <summary>The child nodes collection.</summary>
     protected TreeNodes _nodes;
+    /// <summary>The parent node reference.</summary>
     protected ITreeNode<object>? _parent;
 
     /// <summary>
@@ -51,9 +54,13 @@ public class TreeNode : ITreeNode<object>
     /// <summary>
     /// Gets or sets the value stored in the node.
     /// </summary>
-    public object? Value
+    /// <remarks>
+    /// The underlying storage is nullable, but the interface contract returns non-null.
+    /// Callers should be aware that a default-constructed node has a <c>null</c> value at runtime.
+    /// </remarks>
+    public object Value
     {
-        get => _value;
+        get => _value!;
         set => _value = value;
     }
 

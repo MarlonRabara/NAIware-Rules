@@ -24,5 +24,5 @@ public interface ISimpleExpression<V, R> : ISimpleExpression<R>
 public interface ISimpleExpression<R> : IExpression<R>
 {
     /// <summary>Gets the type of the operands.</summary>
-    Type Type { get; }
+    new Type Type { get; }
 }

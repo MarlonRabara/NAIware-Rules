@@ -122,7 +122,7 @@ public class HashedCollection : CollectionBase, ISerializable
     /// <param name="context">The streaming context.</param>
     public virtual void GetObjectData(SerializationInfo info, StreamingContext context)
     {
-        object[] objs = InnerList.ToArray();
+        object?[] objs = InnerList.ToArray();
         info.AddValue("items", objs);
     }
 #pragma warning restore SYSLIB0051

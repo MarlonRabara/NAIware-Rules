@@ -1,0 +1,205 @@
+# NAIware Rules
+
+**NAIware Rules** (Not-AI Ware Rules) is a deterministic rules engine and decisioning library for .NET. It provides a lightweight, expression-based framework for evaluating business rules and mathematical formulae at runtime without relying on AI or machine-learning techniques.
+
+## High-Level Architecture
+
+The solution is organized into two libraries and their corresponding test projects:
+
+```
+NAIware-Rules/
+├── src/
+│   ├── NAIware.Core/          # Foundational utilities and shared components
+│   └── NAIware.Rules/         # Rules engine, formula engine, and logic processor
+├── tests/
+│   ├── NAIware.Core.Tests/    # BDD tests for core utilities
+│   └── NAIware.Rules.Tests/   # BDD tests for rules and formulae engines
+├── NAIware-Rules.slnx         # Solution file (SDK-style XML)
+└── README.md
+```
+
+### NAIware.Core
+
+A shared library of foundational utilities used throughout the solution:
+
+| Namespace | Purpose |
+|---|---|
+| `Collections` | Tree structures (`TreeNode`, `BinaryTreeNode`, `TreeCollection`), hashed collections, sorted collections, hierarchies |
+| `Math` | `Fraction` class with arithmetic, `MathHelper` (GCF, LCM, rounding) |
+| `Reflection` | Reflection helpers, property/field/member tables, assembly information |
+| `Text` | `StringHelper` (formatting, validation, character analysis), `CharacterClass` enum |
+| `Security.Cryptography` | Symmetric encryption services |
+| `IO` | I/O helpers |
+| Root | `TypeHelper`, `ByteHelper`, `BinaryLargeNumber` (obsolete stub) |
+
+### NAIware.Rules
+
+The core decisioning library providing three processing engines:
+
+| Component | Purpose |
+|---|---|
+| **Rules Engine** (`Rules.Engine`) | Parses and evaluates boolean rule expressions (e.g., `Age > 18 and Status = "Active"`) |
+| **Formulae Engine** (`Formulae.Engine`) | Parses and evaluates mathematical formula expressions (e.g., `Rate * Amount + Fee`) |
+| **Logic Processor Engine** (`LogicProcessorEngine`) | Evaluates complex expressions combining rules, formulae, and method calls |
+
+#### Key Concepts
+
+- **Parameters** — Named, typed values injected into expressions at runtime. Created from POCOs via `ParameterFactory` using reflection.
+- **Expressions** — Parsed token trees that evaluate to a result. `SimpleExpression<V,OP,R>` handles atomic comparisons/math; `ComplexExpression<OP,R>` composes them.
+- **Operators** — `ComparisonOperator` (`=`, `!=`, `<>`, `>`, `<`, `>=`, `<=`), `LogicalOperator` (`and`, `or`), `MathOperator` (`+`, `-`, `*`, `/`).
+- **Method Map** — Allows registration of custom method wrappers (`IMethodWrapper`) that can be invoked within logic processor expressions.
+- **Expression Groups** — Logical groupings of rules or formulae with parent-child inheritance.
+- **Identification** — Each rule/formula tree carries a `Guid` and `Name` for tracking which rules fire.
+
+## Key Technologies
+
+| Technology | Version |
+|---|---|
+| .NET | 10.0 |
+| C# Language | 12 |
+| xUnit | 2.9.3 |
+| Reqnroll (BDD) | 3.0.0 |
+| FluentAssertions | 8.3.0 |
+| System.Runtime.Caching | 9.0.4 |
+| System.Configuration.ConfigurationManager | 9.0.4 |
+
+## Setup & Local Development
+
+### Prerequisites
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- Visual Studio 2026+ or any IDE with .NET 10 support
+
+### Clone & Build
+
+```bash
+git clone https://github.com/MarlonRabara/NAIware-Rules.git
+cd NAIware-Rules
+dotnet restore
+dotnet build
+```
+
+### Configuration
+
+The `ParameterFactory` supports optional caching via the `NAIware.Rules.ParameterCachingEnabled` app setting:
+
+```xml
+<appSettings>
+  <add key="NAIware.Rules.ParameterCachingEnabled" value="true" />
+</appSettings>
+```
+
+When enabled, reflected parameter sets are cached in `MemoryCache` for 20 ms to optimize repeated evaluations against the same object.
+
+## Build & Run
+
+```bash
+# Build the solution
+dotnet build
+
+# Build with no incremental (clean build)
+dotnet build --no-incremental
+```
+
+The solution targets `net10.0` with nullable reference types enabled and XML documentation generation turned on. The build should produce **zero warnings**.
+
+## Test Instructions
+
+Tests are written using **Reqnroll** (BDD/Gherkin) with **xUnit** and **FluentAssertions**.
+
+```bash
+# Run all tests
+dotnet test
+
+# Run only Core tests
+dotnet test tests/NAIware.Core.Tests
+
+# Run only Rules tests
+dotnet test tests/NAIware.Rules.Tests
+```
+
+### Test Coverage
+
+| Project | Scenarios |
+|---|---|
+| NAIware.Core.Tests | Fraction arithmetic, MathHelper (GCF/LCM/RoundUp), StringHelper, TypeHelper, BinaryTreeNode, Comparer |
+| NAIware.Rules.Tests | Rule parsing/evaluation, formula parsing/evaluation, complex expressions, parameter injection |
+
+## Usage Examples
+
+### Rules Engine
+
+```csharp
+var engine = new NAIware.Rules.Rules.Engine();
+engine.AddParameter(new GenericParameter<int>("Age", "Customer age", 25));
+engine.AddParameter(new GenericParameter<string>("Status", "Account status", "Active"));
+
+engine.AddRule("Age > 18 and Status = \"Active\"", "EligibilityRule");
+
+List<Identification> results = engine.Execute();
+// results contains the Identification of rules that evaluated to true
+```
+
+### Formulae Engine
+
+```csharp
+var engine = new NAIware.Rules.Formulae.Engine();
+engine.AddParameter(new GenericParameter<decimal>("Rate", "Interest rate", 0.05m));
+engine.AddParameter(new GenericParameter<decimal>("Amount", "Loan amount", 10000m));
+
+engine.AddFormula("Rate * Amount", "InterestCalc");
+
+FormulaTree? formula = engine.GetFormulaByName("InterestCalc");
+decimal? result = formula?.Evaluate(); // 500.00
+```
+
+### Logic Processor (Rules + Formulae + Methods)
+
+```csharp
+var methodMap = new MethodMap();
+methodMap.Add("MyMethod", myMethodWrapper);
+
+var parameters = new Parameters();
+parameters.Add("X", new GenericParameter<decimal>("X", "Input", 10m));
+
+var processor = new LogicProcessorEngine("MyMethod(X * 2)", methodMap, parameters);
+decimal result = processor.Evaluate<decimal>();
+```
+
+## Coding Standards
+
+- **Nullable reference types** are enabled across all projects. All public APIs should be nullable-annotated.
+- **XML documentation** is generated (`GenerateDocumentationFile`). Every public/protected type and member should carry `<summary>` and relevant `<param>`, `<returns>`, `<exception>`, `<remarks>` tags.
+- **Build quality**: The solution must build with **zero warnings**. Do not suppress warnings globally; fix them properly.
+- **Testing**: BDD-style tests using Reqnroll/Gherkin feature files with xUnit and FluentAssertions.
+- **Naming**: Follow standard .NET naming conventions (PascalCase for public members, camelCase with underscore prefix for private fields).
+
+## Known Assumptions & Business Rules
+
+- The rules engine supports these comparison types: `=`, `!=`, `<>`, `>`, `<`, `>=`, `<=`.
+- Logical connectives are `and` / `or` (also `&&` / `||`, normalized during tokenization).
+- Math operators are `+`, `-`, `*`, `/`.
+- Date literals are delimited with `#` (e.g., `#2024-01-01#`).
+- String literals are delimited with `"` (e.g., `"Active"`).
+- The `Formulae.Engine.Execute()` method is a stub — formula execution returns `null`. Individual formula evaluation via `FormulaTree.Evaluate()` is fully functional.
+- `BinaryLargeNumber` is an obsolete, incomplete stub. Use `System.Numerics.BigInteger` instead.
+
+## Troubleshooting
+
+| Issue | Resolution |
+|---|---|
+| `NU1603` warnings about Reqnroll | Ensure Reqnroll packages are pinned to `3.0.0` in test projects |
+| `ParsingException` during rule/formula parsing | Check for unmatched parentheses, invalid characters, or unsupported operators in the expression |
+| `InvalidOperationException` from parameter creation | Verify the type name string matches a supported type (`System.Int32`, `System.Decimal`, `System.Double`, `System.String`, `System.Boolean`, `System.DateTime`) |
+| Parameter caching not working | Add `NAIware.Rules.ParameterCachingEnabled = true` to app settings |
+
+## Recommended Next Steps
+
+1. **Replace `System.Collections.Stack` with `Stack<object>`** in the parser methods of `Rules.Engine`, `Formulae.Engine`, and `LogicProcessorEngine` to eliminate non-generic collection usage and improve type safety.
+2. **Implement `Formulae.Engine.Execute()`** — it currently returns `null` as a stub. Individual formula evaluation via `FormulaTree.Evaluate()` works, but the batch-execution entry point is not yet wired up.
+3. **Remove `BinaryLargeNumber`** entirely since it is an incomplete, obsolete stub. Use `System.Numerics.BigInteger` for arbitrary-precision arithmetic instead.
+4. **Evaluate FluentAssertions licensing** — the test output shows a commercial-license notice from Xceed. Determine whether the project qualifies under the community license or if an alternative assertion library (e.g., `Shouldly`) should be adopted.
+
+## License
+
+See the repository for license information.

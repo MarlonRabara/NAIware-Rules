@@ -50,5 +50,5 @@ public struct BinaryLargeNumber
     }
 
     /// <inheritdoc/>
-    public override readonly string ToString() => base.ToString() ?? string.Empty;
+    public override readonly string ToString() => $"{(_negative ? "-" : string.Empty)}BLN[exp={_exp.Count},frac={_fraction.Count}]";
 }

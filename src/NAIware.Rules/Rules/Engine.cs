@@ -188,7 +188,7 @@ public class Engine : EngineBase
                 if (operationstack.Count > 0 && operationstack.Peek() is string s && s == ")")
                 {
                     expstack.Pop(); // discard ")"
-                    object pareninner = expstack.Pop();
+                    object? pareninner = expstack.Pop();
                     if (pareninner is IExpression<bool> innerrule)
                     {
                         innerrule.HasLeftParenthesis = true;

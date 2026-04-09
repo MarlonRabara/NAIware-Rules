@@ -87,7 +87,7 @@ public class ExpressionNode<R> : BinaryTreeNode<IExpressionComponent>, IExpressi
     protected virtual ExpressionNode<R> InnerClone()
     {
         var clone = (ExpressionNode<R>)MemberwiseClone();
-        clone.Value = ((IExpressionComponent)Value).Clone() as IExpressionComponent;
+        clone.Value = (IExpressionComponent)((IExpressionComponent)Value).Clone();
         if (clone.LeftChild is not null)
             clone.LeftChild = ((ExpressionNode<R>)LeftChild!).Clone();
         if (clone.RightChild is not null)

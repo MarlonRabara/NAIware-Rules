@@ -196,41 +196,24 @@ public class Factory
             ? Helper.ExtractType(valTyped.Type).FullName
             : null;
 
+        // Resolve operands: prefer IValue cast, fall back to ISimpleExpression<R> as IValue.
+        IValue lhs = (leftOperand as IValue ?? leftOperand as ISimpleExpression<R> as IValue)!;
+        IValue rhs = (rightOperand as IValue ?? rightOperand as ISimpleExpression<R> as IValue)!;
+
         // Handle null/nullable fallback
         if (typeName is null && val is not null && TypeHelper.IsNullable(val.Type))
         {
-            return (IExpression<R>)new SimpleExpression<decimal?, OP, R>(
-                leftOperand as IValue ?? leftOperand as ISimpleExpression<R> as IValue,
-                expOp,
-                rightOperand as IValue ?? rightOperand as ISimpleExpression<R> as IValue);
+            return (IExpression<R>)new SimpleExpression<decimal?, OP, R>(lhs, expOp, rhs);
         }
 
         return typeName switch
         {
-            "System.Int32" => (IExpression<R>)new SimpleExpression<int, OP, R>(
-                leftOperand as IValue ?? leftOperand as ISimpleExpression<R> as IValue,
-                expOp,
-                rightOperand as IValue ?? rightOperand as ISimpleExpression<R> as IValue),
-            "System.Double" => (IExpression<R>)new SimpleExpression<double, OP, R>(
-                leftOperand as IValue ?? leftOperand as ISimpleExpression<R> as IValue,
-                expOp,
-                rightOperand as IValue ?? rightOperand as ISimpleExpression<R> as IValue),
-            "System.Decimal" => (IExpression<R>)new SimpleExpression<decimal, OP, R>(
-                leftOperand as IValue ?? leftOperand as ISimpleExpression<R> as IValue,
-                expOp,
-                rightOperand as IValue ?? rightOperand as ISimpleExpression<R> as IValue),
-            "System.String" => (IExpression<R>)new SimpleExpression<string, OP, R>(
-                leftOperand as IValue ?? leftOperand as ISimpleExpression<R> as IValue,
-                expOp,
-                rightOperand as IValue ?? rightOperand as ISimpleExpression<R> as IValue),
-            "System.Boolean" => (IExpression<R>)new SimpleExpression<bool, OP, R>(
-                leftOperand as IValue ?? leftOperand as ISimpleExpression<R> as IValue,
-                expOp,
-                rightOperand as IValue ?? rightOperand as ISimpleExpression<R> as IValue),
-            "System.DateTime" => (IExpression<R>)new SimpleExpression<DateTime, OP, R>(
-                leftOperand as IValue ?? leftOperand as ISimpleExpression<R> as IValue,
-                expOp,
-                rightOperand as IValue ?? rightOperand as ISimpleExpression<R> as IValue),
+            "System.Int32" => (IExpression<R>)new SimpleExpression<int, OP, R>(lhs, expOp, rhs),
+            "System.Double" => (IExpression<R>)new SimpleExpression<double, OP, R>(lhs, expOp, rhs),
+            "System.Decimal" => (IExpression<R>)new SimpleExpression<decimal, OP, R>(lhs, expOp, rhs),
+            "System.String" => (IExpression<R>)new SimpleExpression<string, OP, R>(lhs, expOp, rhs),
+            "System.Boolean" => (IExpression<R>)new SimpleExpression<bool, OP, R>(lhs, expOp, rhs),
+            "System.DateTime" => (IExpression<R>)new SimpleExpression<DateTime, OP, R>(lhs, expOp, rhs),
             _ => null
         };
     }

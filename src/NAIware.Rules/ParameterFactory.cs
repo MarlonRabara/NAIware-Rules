@@ -106,13 +106,16 @@ public class ParameterFactory
     {
         foreach (string propertyName in pt.GetMemberNames())
         {
-            Type t = pt[propertyName].PropertyType;
+            var propertyInfo = pt[propertyName];
+            if (propertyInfo is null) continue;
+
+            Type t = propertyInfo.PropertyType;
             Type underlyingType = Helper.ExtractType(t);
             Type genericParameterType = typeof(GenericParameter<>).MakeGenericType(underlyingType);
 
             try
             {
-                object? extractedValue = pt[propertyName].GetValue(obj, null);
+                object? extractedValue = propertyInfo.GetValue(obj, null);
                 IParameter parameter;
 
                 if (Helper.IsNullable(t) && extractedValue is null)

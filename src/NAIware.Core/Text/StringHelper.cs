@@ -191,7 +191,7 @@ public static class StringHelper
     /// <param name="any">The enumeration value to format.</param>
     /// <returns>A human-readable string (e.g., "RateType" becomes "Rate Type").</returns>
     public static string FormatEnumeration(Enum any) =>
-        InsertSpaceInProperCaseString(any.ToString());
+        InsertSpaceInProperCaseString(any.ToString())!;
 
     /// <summary>
     /// Inserts spaces before uppercase letters in a PascalCase string.
