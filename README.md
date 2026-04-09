@@ -44,7 +44,7 @@ The core decisioning library providing three processing engines:
 
 #### Key Concepts
 
-- **Parameters** — Named, typed values injected into expressions at runtime. Created from POCOs via `ParameterFactory` using reflection.
+- **Parameters** — Named, typed values injected into expressions at runtime. Created from POCOs via `ParameterFactory` using reflection. The factory automatically handles simple-type properties, nested complex objects (dot-notation), and collections (indexed dot-notation).
 - **Expressions** — Parsed token trees that evaluate to a result. `SimpleExpression<V,OP,R>` handles atomic comparisons/math; `ComplexExpression<OP,R>` composes them.
 - **Operators** — `ComparisonOperator` (`=`, `!=`, `<>`, `>`, `<`, `>=`, `<=`), `LogicalOperator` (`and`, `or`), `MathOperator` (`+`, `-`, `*`, `/`).
 - **Method Map** — Allows registration of custom method wrappers (`IMethodWrapper`) that can be invoked within logic processor expressions.
@@ -123,7 +123,7 @@ dotnet test tests/NAIware.Rules.Tests
 | Project | Scenarios |
 |---|---|
 | NAIware.Core.Tests | Fraction arithmetic, MathHelper (GCF/LCM/RoundUp), StringHelper, TypeHelper, BinaryTreeNode, Comparer |
-| NAIware.Rules.Tests | Rule parsing/evaluation, formula parsing/evaluation, complex expressions, parameter injection |
+| NAIware.Rules.Tests | Rule parsing/evaluation, formula parsing/evaluation, complex expressions, parameter injection, mortgage processing (complex-type extraction) |
 
 ## Usage Examples
 
@@ -165,6 +165,137 @@ parameters.Add("X", new GenericParameter<decimal>("X", "Input", 10m));
 var processor = new LogicProcessorEngine("MyMethod(X * 2)", methodMap, parameters);
 decimal result = processor.Evaluate<decimal>();
 ```
+
+### Mortgage Processing (Complex-Type Extraction)
+
+This example demonstrates how `ParameterFactory` automatically extracts parameters from nested domain objects — including complex child objects and collections — so that rule expressions can reference them with dot-notation.
+
+#### Domain Model
+
+```csharp
+public class LoanApplication
+{
+    public List<Borrower> Borrowers { get; set; } = [];
+    public Property Property { get; set; } = new();
+    public int BorrowerCount => Borrowers.Count;
+}
+
+public class Borrower
+{
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public DateTime BirthDate { get; set; }
+    public int Age  // Computed property
+    {
+        get
+        {
+            DateTime today = DateTime.Today;
+            int age = today.Year - BirthDate.Year;
+            if (BirthDate.Date > today.AddYears(-age)) age--;
+            return age;
+        }
+    }
+}
+
+public class Property
+{
+    public string StreetAddress { get; set; } = string.Empty;
+    public string City { get; set; } = string.Empty;
+    public string State { get; set; } = string.Empty;
+    public string Zip { get; set; } = string.Empty;
+}
+```
+
+#### Parameter Extraction
+
+`ParameterFactory.CreateParameters` reflects the entire object graph into flat, dot-notated parameters:
+
+```csharp
+var app = new LoanApplication
+{
+    Property = new Property
+    {
+        StreetAddress = "456 Oak Ave", City = "Miami", State = "FL", Zip = "33101"
+    },
+    Borrowers =
+    [
+        new Borrower { FirstName = "John", LastName = "Smith", BirthDate = new DateTime(1955, 3, 15) },
+        new Borrower { FirstName = "Jane", LastName = "Smith", BirthDate = new DateTime(1958, 7, 22) }
+    ]
+};
+
+var factory = new ParameterFactory();
+Parameters? prms = factory.CreateParameters(app);
+```
+
+This produces the following parameters automatically:
+
+| Parameter Key | Value |
+|---|---|
+| `BorrowerCount` | `2` |
+| `Property.StreetAddress` | `"456 Oak Ave"` |
+| `Property.City` | `"Miami"` |
+| `Property.State` | `"FL"` |
+| `Property.Zip` | `"33101"` |
+| `Borrowers.Count` | `2` |
+| `Borrowers.0.FirstName` | `"John"` |
+| `Borrowers.0.LastName` | `"Smith"` |
+| `Borrowers.0.Age` | `70` |
+| `Borrowers.1.FirstName` | `"Jane"` |
+| `Borrowers.1.LastName` | `"Smith"` |
+| `Borrowers.1.Age` | `66` |
+
+#### Use Case 1: No Borrowers Validation
+
+```csharp
+var engine = new Engine();
+engine.Parameters.Add(prms);
+
+engine.AddRule("BorrowerCount = 0", "NoBorrowers");
+List<Identification> results = engine.Execute();
+
+if (results.Exists(r => r.Name == "NoBorrowers"))
+    Console.WriteLine("Must have at least one borrower");
+```
+
+#### Use Case 2: Reverse Mortgage Eligibility
+
+Using indexed dot-notation, check every borrower's age against the rule:
+
+```csharp
+var factory = new ParameterFactory();
+Parameters? prms = factory.CreateParameters(loanApplication);
+
+bool allPass = true;
+for (int i = 0; i < loanApplication.Borrowers.Count; i++)
+{
+    var engine = new Engine();
+    engine.Parameters.Add(prms);
+    engine.AddRule($"Borrowers.{i}.Age >= 62", "ReverseMortgageEligible");
+
+    List<Identification> results = engine.Execute();
+    if (!results.Exists(r => r.Name == "ReverseMortgageEligible"))
+    {
+        allPass = false;
+        break;
+    }
+}
+
+if (loanApplication.Borrowers.Count > 0 && allPass)
+    Console.WriteLine("You are eligible for a Reverse Mortgage!");
+```
+
+#### How Complex-Type Extraction Works
+
+`ParameterFactory.AppendParameters` classifies each property and handles it accordingly:
+
+| Property Kind | Behavior | Naming Convention |
+|---|---|---|
+| **Simple type** (int, string, DateTime, etc.) | Extracted directly as a `GenericParameter<T>` | `PropertyName` |
+| **Complex object** (non-collection reference type) | Recursed into with dot-prefix | `Parent.PropertyName` |
+| **Collection** (`IList`) | Count added + each element recursed with indexed dot-prefix | `Collection.Count`, `Collection.0.Property` |
+
+Circular references are guarded with a `HashSet<object>` using `ReferenceEqualityComparer`.
 
 ## Coding Standards
 
