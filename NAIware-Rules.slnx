@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/Shared Libraries/">
+    <Project Path="src/NAIware.Core/NAIware.Core.csproj" />
+    <Project Path="src/NAIware.Rules/NAIware.Rules.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="tests/NAIware.Core.Tests/NAIware.Core.Tests.csproj" />
+    <Project Path="tests/NAIware.Rules.Tests/NAIware.Rules.Tests.csproj" />
+  </Folder>
+</Solution>
