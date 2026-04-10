@@ -10,10 +10,17 @@ The solution is organized into two libraries and their corresponding test projec
 NAIware-Rules/
 ├── src/
 │   ├── NAIware.Core/          # Foundational utilities and shared components
-│   └── NAIware.Rules/         # Rules engine, formula engine, and logic processor
+│   └── NAIware.Rules/         # Rules engine, formula engine, logic processor, catalog, and rule processor
+│       ├── Catalog/           # Design-time domain model (RulesLibrary, RuleContext, RuleExpression, etc.)
+│       ├── Processing/        # High-level rule processor with context resolution
+│       ├── Runtime/           # Evaluation request/result models and diagnostics
+│       ├── Rules/             # Rules engine and rule trees
+│       └── Formulae/          # Formulae engine and formula trees
 ├── tests/
 │   ├── NAIware.Core.Tests/    # BDD tests for core utilities
-│   └── NAIware.Rules.Tests/   # BDD tests for rules and formulae engines
+│   └── NAIware.Rules.Tests/   # BDD tests for rules, formulae, mortgage processing, and rule processor
+├── docs/
+│   └── CATALOG_DESIGN.md      # Catalog & runtime extension design document
 ├── NAIware-Rules.slnx         # Solution file (SDK-style XML)
 └── README.md
 ```
@@ -34,13 +41,14 @@ A shared library of foundational utilities used throughout the solution:
 
 ### NAIware.Rules
 
-The core decisioning library providing three processing engines:
+The core decisioning library providing three processing engines and a catalog-driven rule processor:
 
 | Component | Purpose |
 |---|---|
 | **Rules Engine** (`Rules.Engine`) | Parses and evaluates boolean rule expressions (e.g., `Age > 18 and Status = "Active"`) |
 | **Formulae Engine** (`Formulae.Engine`) | Parses and evaluates mathematical formula expressions (e.g., `Rate * Amount + Fee`) |
 | **Logic Processor Engine** (`LogicProcessorEngine`) | Evaluates complex expressions combining rules, formulae, and method calls |
+| **Rule Processor** (`Processing.RuleProcessor`) | High-level catalog-driven processor with automatic context resolution, structured results, versioning, and optional mismatch diagnostics |
 
 #### Key Concepts
 
@@ -50,6 +58,18 @@ The core decisioning library providing three processing engines:
 - **Method Map** — Allows registration of custom method wrappers (`IMethodWrapper`) that can be invoked within logic processor expressions.
 - **Expression Groups** — Logical groupings of rules or formulae with parent-child inheritance.
 - **Identification** — Each rule/formula tree carries a `Guid` and `Name` for tracking which rules fire.
+
+#### Catalog & Processing Model
+
+The catalog layer (`NAIware.Rules.Catalog`) provides a design-time domain model for defining rules declaratively, while the processing layer (`NAIware.Rules.Processing`) evaluates them at runtime:
+
+- **Rules Library** — Top-level catalog container holding rule contexts.
+- **Rule Context** — Domain classifier (e.g., `LoanApplication`) with a `QualifiedTypeName` that enables automatic resolution from the input object's type.
+- **Rule Category** — Named grouping of expressions within a context (many-to-many with expressions).
+- **Rule Expression** — A versioned, reusable rule definition with an optional `RuleResultDefinition` (code + message + optional severity).
+- **Expression Version** — Immutable snapshot of an expression at a given version, providing audit history.
+- **Rule Parameter Definition** — Declares a parameter the context expects, with optional property path for extraction.
+- **Rule Processor** — Takes an input object and optional category, auto-resolves the context, extracts parameters via `ParameterFactory`, evaluates expressions using the existing `Rules.Engine`, and returns structured `RuleEvaluationResult` with matches, mismatches, and optional diagnostics.
 
 ## Key Technologies
 
@@ -296,6 +316,89 @@ if (loanApplication.Borrowers.Count > 0 && allPass)
 | **Collection** (`IList`) | Count added + each element recursed with indexed dot-prefix | `Collection.Count`, `Collection.0.Property` |
 
 Circular references are guarded with a `HashSet<object>` using `ReferenceEqualityComparer`.
+
+### Rule Processor (Catalog-Driven Evaluation)
+
+The `RuleProcessor` provides a high-level API that eliminates manual engine setup. Define rules in a catalog, pass an input object, and get structured results:
+
+#### 1. Define the Catalog
+
+```csharp
+using NAIware.Rules.Catalog;
+
+var library = new RulesLibrary("MortgageRules", "Mortgage processing rules");
+
+// Register a context — QualifiedTypeName enables auto-resolution
+var context = library.AddContext(
+    "LoanApplication",
+    typeof(LoanApplication).FullName!,
+    "Rules for loan applications");
+
+// Add expressions with result definitions
+context.AddExpression("NoBorrowers", "BorrowerCount = 0", "Validates borrower presence")
+    .WithResult("BORR-001", "Must have at least one borrower", severity: "Error");
+
+context.AddExpression("ReverseMortgageAge", "Borrowers.0.Age >= 62", "Check reverse mortgage eligibility")
+    .WithResult("ELIG-001", "Primary borrower qualifies for reverse mortgage");
+
+// Group expressions into categories
+var validation = context.AddCategory("Validation");
+validation.AddExpression(context.Expressions[0]); // NoBorrowers
+
+var eligibility = context.AddCategory("Eligibility");
+eligibility.AddExpression(context.Expressions[1]); // ReverseMortgageAge
+```
+
+#### 2. Evaluate with Automatic Context Resolution
+
+```csharp
+using NAIware.Rules.Processing;
+using NAIware.Rules.Runtime;
+
+var processor = new RuleProcessor(library);
+
+var request = new RuleEvaluationRequest(
+    inputObject: myLoanApplication,
+    categoryName: "Validation",      // optional — null evaluates all active expressions
+    includeDiagnostics: true);       // optional — produces mismatch explanations
+
+RuleEvaluationResult result = processor.Evaluate(request);
+
+// Matches
+foreach (var match in result.Matches)
+{
+    Console.WriteLine($"[{match.Result?.Code}] {match.Result?.Message}");
+}
+
+// Mismatch diagnostics (when enabled)
+foreach (var mismatch in result.Mismatches)
+{
+    Console.WriteLine($"Rule '{mismatch.ExpressionName}' did not match.");
+    if (mismatch.Diagnostic is not null)
+    {
+        Console.WriteLine($"  Expression: {mismatch.Diagnostic.Expression}");
+        Console.WriteLine($"  Explanation: {mismatch.Diagnostic.Explanation}");
+        foreach (var kvp in mismatch.Diagnostic.EvaluatedParameters)
+            Console.WriteLine($"  {kvp.Key} = {kvp.Value}");
+    }
+}
+```
+
+#### 3. Expression Versioning
+
+```csharp
+var expr = context.Expressions[0];
+Console.WriteLine(expr.Version);    // 1
+Console.WriteLine(expr.Expression); // "BorrowerCount = 0"
+
+expr.Revise("BorrowerCount < 1", "Use less-than for clarity");
+Console.WriteLine(expr.Version);    // 2
+Console.WriteLine(expr.Expression); // "BorrowerCount < 1"
+
+// Full audit trail
+foreach (var v in expr.Versions)
+    Console.WriteLine($"v{v.Version}: {v.Expression} ({v.ChangeNote})");
+```
 
 ## Coding Standards
 
