@@ -16,6 +16,7 @@ public sealed class MainForm : Form
     private readonly IntelliSenseService _intelliSense;
     private readonly RuleValidationService _validator;
     private readonly RuleTestService _testService = new();
+    private SplitContainer? _editorAndPropsSplit;
 
     private RuleLibraryDocument _library = new();
     private string? _currentFile;
@@ -290,9 +291,11 @@ public sealed class MainForm : Form
             SplitterWidth = 4
         };
 
+        _editorAndPropsSplit = editorAndProps;
+
         top.Panel1.Controls.Add(BuildLibraryPanel());
-        editorAndProps.Panel1.Controls.Add(BuildEditorPanel());
-        editorAndProps.Panel2.Controls.Add(BuildPropertiesPanel());
+        editorAndProps.Panel1.Controls.Add(BuildPropertiesPanel());
+        editorAndProps.Panel2.Controls.Add(BuildEditorPanel());
         top.Panel2.Controls.Add(editorAndProps);
 
         root.Panel1.Controls.Add(top);
@@ -310,7 +313,7 @@ public sealed class MainForm : Form
         {
             ConfigureSplit(root, panel1MinSize: 0, panel2MinSize: 165, preferredDistance: root.Height - 360);
             ConfigureSplit(top, panel1MinSize: 260, panel2MinSize: 500, preferredDistance: 410);
-            ConfigureSplit(editorAndProps, panel1MinSize: 420, panel2MinSize: 250, preferredDistance: editorAndProps.Width - 760);
+            ConfigureSplit(editorAndProps, panel1MinSize: 250, panel2MinSize: 420, preferredDistance: 360);
         }
 
         static void ConfigureSplit(SplitContainer split, int panel1MinSize, int panel2MinSize, int preferredDistance)
@@ -344,6 +347,12 @@ public sealed class MainForm : Form
         }
 
         return root;
+    }
+
+    private void UpdateEditorVisibility()
+    {
+        if (_editorAndPropsSplit is null) return;
+        _editorAndPropsSplit.Panel2Collapsed = _ruleTree.SelectedNode?.Tag is not RuleExpressionDocument;
     }
 
     private Control BuildLibraryPanel()
@@ -962,6 +971,7 @@ public sealed class MainForm : Form
             }
 
             UpdateContextLabels();
+            UpdateEditorVisibility();
         }
         finally
         {
