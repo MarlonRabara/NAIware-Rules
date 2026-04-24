@@ -4,467 +4,647 @@ using NAIware.Rules.Runtime;
 namespace NAIware.RuleEditor;
 
 /// <summary>
-/// The main rule editor window. Provides a three-panel developer experience:
-/// library tree on the left, tabbed editor on the right, and a Visual Studio
-/// style error list along the bottom.
+/// Main Windows Forms UI for the NAIware Rule Editor. The layout intentionally
+/// follows the mockup in docs/images/naiware-rule-editor-mockup.png: menu and
+/// command ribbon at the top, rule library tree on the left, expression editor
+/// in the center, properties on the right, and a Visual Studio-style error list
+/// at the bottom.
 /// </summary>
 public sealed class MainForm : Form
 {
-    // Services
     private readonly AssemblyTypeDiscoveryService _typeDiscovery = new();
-    private readonly IntelliSenseService _intellisense;
+    private readonly IntelliSenseService _intelliSense;
     private readonly RuleValidationService _validator;
     private readonly RuleTestService _testService = new();
 
-    // State
     private RuleLibraryDocument _library = new();
     private string? _currentFile;
     private bool _dirty;
-    private bool _suspendBinding;
+    private bool _binding;
 
-    // Tree & toolbar
-    private readonly TreeView _tree = new()
+    private readonly TreeView _ruleTree = new()
     {
         Dock = DockStyle.Fill,
         HideSelection = false,
-        ShowNodeToolTips = true,
-        Font = new Font("Segoe UI", 9.5f)
+        ShowLines = true,
+        Font = new Font("Segoe UI", 9.25f)
+    };
+
+    private readonly TextBox _treeSearchTextBox = new()
+    {
+        Dock = DockStyle.Top,
+        PlaceholderText = "Search...",
+        BorderStyle = BorderStyle.FixedSingle
     };
 
     private readonly ImageList _treeImages = new() { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
-    private readonly ImageList _errorImages = new() { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
+    private readonly ImageList _issueImages = new() { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
 
-    // Editor controls
-    private readonly TabControl _editorTabs = new() { Dock = DockStyle.Fill };
-    private readonly Label _headerLabel = new()
+    private readonly Label _documentTabLabel = new()
     {
         Dock = DockStyle.Top,
         Height = 36,
-        Padding = new Padding(12, 10, 12, 6),
-        Font = new Font("Segoe UI Semibold", 10.5f),
-        Text = "Select an item in the library tree."
+        Padding = new Padding(12, 8, 8, 0),
+        Text = "  01 - Age Rule      ×",
+        Font = new Font("Segoe UI Semibold", 9.25f),
+        BackColor = Color.White
     };
 
-    // Rule metadata
-    private readonly TextBox _nameTextBox = new() { Dock = DockStyle.Top };
-    private readonly TextBox _descriptionTextBox = new() { Dock = DockStyle.Top, Height = 60, Multiline = true, ScrollBars = ScrollBars.Vertical };
-    private readonly CheckBox _activeCheckBox = new() { Dock = DockStyle.Top, Text = "Enabled", Height = 28 };
-    private readonly NumericUpDown _priorityNumeric = new() { Dock = DockStyle.Top, Minimum = 0, Maximum = 9999 };
-    private readonly TextBox _tagsTextBox = new() { Dock = DockStyle.Top, PlaceholderText = "Comma-separated tags" };
-
-    // Expression editor
     private readonly TextBox _expressionTextBox = new()
     {
         Dock = DockStyle.Fill,
         Multiline = true,
         ScrollBars = ScrollBars.Both,
         AcceptsTab = true,
-        Font = new Font("Cascadia Mono, Consolas", 10.5f),
-        WordWrap = false
+        WordWrap = false,
+        Font = new Font("Cascadia Mono, Consolas", 10.25f),
+        BorderStyle = BorderStyle.None
     };
 
-    private readonly ListBox _intellisenseListBox = new()
+    private readonly ListBox _intelliSenseListBox = new()
     {
         Visible = false,
-        Width = 280,
+        Width = 320,
         Height = 180,
-        Font = new Font("Cascadia Mono, Consolas", 9.5f),
+        Font = new Font("Cascadia Mono, Consolas", 9.25f),
         IntegralHeight = false
     };
 
-    // Result definition
-    private readonly TextBox _resultCodeTextBox = new() { Dock = DockStyle.Top };
-    private readonly TextBox _resultMessageTextBox = new() { Dock = DockStyle.Top, Height = 60, Multiline = true, ScrollBars = ScrollBars.Vertical };
-    private readonly ComboBox _severityComboBox = new() { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly TextBox _optionalValueTextBox = new() { Dock = DockStyle.Top };
+    private readonly TextBox _resultCodeTextBox = new() { Dock = DockStyle.Fill };
+    private readonly TextBox _resultMessageTextBox = new() { Dock = DockStyle.Fill };
+    private readonly ComboBox _severityComboBox = new() { Dock = DockStyle.Left, Width = 190, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly TextBox _optionalValueTextBox = new() { Dock = DockStyle.Fill };
 
-    // Context editor
-    private readonly TextBox _contextNameTextBox = new() { Dock = DockStyle.Top };
-    private readonly TextBox _contextTypeTextBox = new() { Dock = DockStyle.Top, ReadOnly = true };
-    private readonly TextBox _contextDescriptionTextBox = new() { Dock = DockStyle.Top, Height = 60, Multiline = true, ScrollBars = ScrollBars.Vertical };
-    private readonly TextBox _contextAssemblyTextBox = new() { Dock = DockStyle.Top, ReadOnly = true };
+    private readonly TextBox _ruleNameTextBox = new() { Dock = DockStyle.Top };
+    private readonly TextBox _ruleDescriptionTextBox = new() { Dock = DockStyle.Top, Multiline = true, Height = 52, ScrollBars = ScrollBars.Vertical };
+    private readonly CheckBox _ruleEnabledCheckBox = new() { Dock = DockStyle.Top, Text = "Enabled", Height = 25 };
+    private readonly TextBox _tagsTextBox = new() { Dock = DockStyle.Top, PlaceholderText = "age, loan, eligibility" };
+    private readonly NumericUpDown _priorityNumeric = new() { Dock = DockStyle.Top, Minimum = 0, Maximum = 9999 };
 
-    // Category editor
-    private readonly TextBox _categoryNameTextBox = new() { Dock = DockStyle.Top };
-    private readonly TextBox _categoryDescriptionTextBox = new() { Dock = DockStyle.Top, Height = 60, Multiline = true, ScrollBars = ScrollBars.Vertical };
+    private readonly Label _createdByLabel = new() { Dock = DockStyle.Top, Height = 24, Text = "Created By:    jdoe" };
+    private readonly Label _createdOnLabel = new() { Dock = DockStyle.Top, Height = 24, Text = "Created On:    5/13/2025 9:15 AM" };
+    private readonly Label _modifiedByLabel = new() { Dock = DockStyle.Top, Height = 24, Text = "Modified By:   jdoe" };
+    private readonly Label _modifiedOnLabel = new() { Dock = DockStyle.Top, Height = 24, Text = "Modified On:   5/13/2025 9:18 AM" };
+    private readonly Label _contextNameLabel = new() { Dock = DockStyle.Top, Height = 24, Text = "Context Name:" };
+    private readonly Label _contextTypeLabel = new() { Dock = DockStyle.Top, Height = 44, Text = "Context Type:" };
 
-    // Library editor
-    private readonly TextBox _libraryNameTextBox = new() { Dock = DockStyle.Top };
-    private readonly TextBox _libraryDescriptionTextBox = new() { Dock = DockStyle.Top, Height = 60, Multiline = true, ScrollBars = ScrollBars.Vertical };
-
-    // Error list
     private readonly ListView _errorList = new()
     {
         Dock = DockStyle.Fill,
         View = View.Details,
         FullRowSelect = true,
-        GridLines = false,
         MultiSelect = false,
+        GridLines = true,
         Font = new Font("Segoe UI", 9.25f)
     };
 
+    private readonly TextBox _errorSearchTextBox = new()
+    {
+        Dock = DockStyle.Right,
+        Width = 260,
+        PlaceholderText = "Search Error List...",
+        BorderStyle = BorderStyle.FixedSingle
+    };
+
+    private readonly Label _libraryCountLabel = new() { Dock = DockStyle.Bottom, Height = 26, Padding = new Padding(12, 6, 0, 0), Text = "1 context(s)      11 rule(s)" };
     private readonly StatusStrip _statusStrip = new();
-    private readonly ToolStripStatusLabel _statusLabel = new() { Text = "Ready", Spring = true, TextAlign = ContentAlignment.MiddleLeft };
-    private readonly ToolStripStatusLabel _countsLabel = new() { Text = "0 errors · 0 warnings" };
+    private readonly ToolStripStatusLabel _readyStatusLabel = new() { Text = "Ready", Spring = true, TextAlign = ContentAlignment.MiddleLeft };
+    private readonly ToolStripStatusLabel _libraryStatusLabel = new() { Text = "Library: LoanEligibilityRules" };
+    private readonly ToolStripStatusLabel _validationStatusLabel = new() { Text = "Validation not run" };
 
-    // Editor tab page references (so we can toggle visibility)
-    private TabPage? _expressionTab;
-    private TabPage? _metadataTab;
-    private TabPage? _resultTab;
-    private TabPage? _contextTab;
-    private TabPage? _categoryTab;
-    private TabPage? _libraryTab;
-
-    /// <summary>Creates the main form and wires up all services.</summary>
+    /// <summary>Creates the main form.</summary>
     public MainForm()
     {
-        _intellisense = new IntelliSenseService(_typeDiscovery);
-        _validator = new RuleValidationService(_intellisense);
+        _intelliSense = new IntelliSenseService(_typeDiscovery);
+        _validator = new RuleValidationService(_intelliSense);
 
         Text = "NAIware Rule Editor";
-        Width = 1360;
-        Height = 860;
+        Width = 1500;
+        Height = 980;
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(960, 640);
+        MinimumSize = new Size(1100, 720);
         KeyPreview = true;
 
-        BuildIcons();
-        _tree.ImageList = _treeImages;
-
+        BuildImages();
+        _ruleTree.ImageList = _treeImages;
+        _errorList.SmallImageList = _issueImages;
         _severityComboBox.Items.AddRange(["Info", "Warning", "Error"]);
-        _severityComboBox.SelectedIndex = 1;
+        _severityComboBox.SelectedItem = "Error";
 
-        Controls.Add(BuildMainSplit());
-        Controls.Add(BuildToolbar());
+        Controls.Add(BuildShell());
+        Controls.Add(BuildCommandStrip());
         Controls.Add(BuildMenu());
         Controls.Add(BuildStatusBar());
 
-        _tree.AfterSelect += OnTreeSelectionChanged;
-        _tree.NodeMouseClick += (_, e) =>
+        _ruleTree.AfterSelect += (_, _) => BindSelection();
+        _ruleTree.NodeMouseClick += (_, e) =>
         {
             if (e.Button == MouseButtons.Right)
             {
-                _tree.SelectedNode = e.Node;
-                ShowTreeContextMenu(e.Location);
+                _ruleTree.SelectedNode = e.Node;
+                ShowTreeMenu(e.Location);
             }
         };
+        _errorList.MouseDoubleClick += (_, _) => NavigateToSelectedIssue();
 
-        WireUpFieldEvents();
-        WireUpIntelliSense();
+        WireEditorEvents();
+        WireIntelliSenseEvents();
 
-        _expressionTextBox.KeyDown += OnExpressionKeyDown;
-        _errorList.MouseDoubleClick += (_, _) => NavigateToSelectedError();
+        FormClosing += (_, e) =>
+        {
+            if (!ConfirmDiscardChanges()) e.Cancel = true;
+        };
 
-        FormClosing += OnFormClosing;
-
-        CreateSampleLibrary();
+        CreateMockupSampleLibrary();
         RefreshTree();
-        UpdateWindowTitle();
+        UpdateCountsAndStatus("Ready");
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Layout construction
-    // ─────────────────────────────────────────────────────────────────────────
 
     private MenuStrip BuildMenu()
     {
-        var menu = new MenuStrip { Dock = DockStyle.Top, RenderMode = ToolStripRenderMode.System };
+        var menu = new MenuStrip
+        {
+            Dock = DockStyle.Top,
+            RenderMode = ToolStripRenderMode.System,
+            BackColor = Color.White
+        };
 
-        var fileMenu = new ToolStripMenuItem("&File");
-        fileMenu.DropDownItems.Add(MenuItem("&New Library", Keys.Control | Keys.N, (_, _) => NewLibrary()));
-        fileMenu.DropDownItems.Add(MenuItem("&Open Library...", Keys.Control | Keys.O, (_, _) => OpenLibrary()));
-        fileMenu.DropDownItems.Add(MenuItem("&Save Library", Keys.Control | Keys.S, (_, _) => SaveLibrary()));
-        fileMenu.DropDownItems.Add(MenuItem("Save Library &As...", Keys.Control | Keys.Shift | Keys.S, (_, _) => SaveLibraryAs()));
-        fileMenu.DropDownItems.Add(new ToolStripSeparator());
-        fileMenu.DropDownItems.Add(MenuItem("E&xit", Keys.Alt | Keys.F4, (_, _) => Close()));
+        ToolStripMenuItem file = new("&File");
+        file.DropDownItems.Add(MenuItem("&New Library", Keys.Control | Keys.N, (_, _) => NewLibrary()));
+        file.DropDownItems.Add(MenuItem("&Open Library...", Keys.Control | Keys.O, (_, _) => OpenLibrary()));
+        file.DropDownItems.Add(MenuItem("&Save", Keys.Control | Keys.S, (_, _) => SaveLibrary()));
+        file.DropDownItems.Add(MenuItem("Save &As...", Keys.Control | Keys.Shift | Keys.S, (_, _) => SaveLibraryAs()));
+        file.DropDownItems.Add(new ToolStripSeparator());
+        file.DropDownItems.Add(MenuItem("E&xit", Keys.Alt | Keys.F4, (_, _) => Close()));
 
-        var libraryMenu = new ToolStripMenuItem("&Library");
-        libraryMenu.DropDownItems.Add(MenuItem("Add Context From &DLL...", Keys.Control | Keys.D, (_, _) => AddContextFromDll()));
-        libraryMenu.DropDownItems.Add(MenuItem("Add &Category", Keys.None, (_, _) => AddCategory()));
-        libraryMenu.DropDownItems.Add(MenuItem("Add &Subcategory", Keys.None, (_, _) => AddSubcategory()));
-        libraryMenu.DropDownItems.Add(MenuItem("Add &Rule", Keys.Control | Keys.R, (_, _) => AddRule()));
-        libraryMenu.DropDownItems.Add(new ToolStripSeparator());
-        libraryMenu.DropDownItems.Add(MenuItem("Delete Selected", Keys.Delete, (_, _) => DeleteSelected()));
+        ToolStripMenuItem library = new("&Library");
+        library.DropDownItems.Add(MenuItem("Add &Context From DLL...", Keys.Control | Keys.D, (_, _) => AddContextFromDll()));
+        library.DropDownItems.Add(MenuItem("Manage &Contexts...", Keys.None, (_, _) => MessageBox.Show(this, "Manage Contexts is planned for a future revision.", "Manage Contexts")));
+        library.DropDownItems.Add(new ToolStripSeparator());
+        library.DropDownItems.Add(MenuItem("&Validate Library", Keys.F6, (_, _) => ValidateLibrary()));
 
-        var testMenu = new ToolStripMenuItem("&Test");
-        testMenu.DropDownItems.Add(MenuItem("&Validate Library", Keys.F6, (_, _) => ValidateLibrary()));
-        testMenu.DropDownItems.Add(MenuItem("Run &Test Rules...", Keys.F5, (_, _) => TestRules()));
+        ToolStripMenuItem context = new("&Context");
+        context.DropDownItems.Add(MenuItem("Add Context From &DLL...", Keys.Control | Keys.D, (_, _) => AddContextFromDll()));
+        context.DropDownItems.Add(MenuItem("Remove Selected Context", Keys.None, (_, _) => DeleteSelected()));
 
-        var helpMenu = new ToolStripMenuItem("&Help");
-        helpMenu.DropDownItems.Add(MenuItem("&About...", Keys.None, (_, _) => ShowAbout()));
+        ToolStripMenuItem category = new("&Category");
+        category.DropDownItems.Add(MenuItem("Add &Category", Keys.None, (_, _) => AddCategory()));
+        category.DropDownItems.Add(MenuItem("Add &Subcategory", Keys.None, (_, _) => AddSubcategory()));
+        category.DropDownItems.Add(MenuItem("Delete Category", Keys.None, (_, _) => DeleteSelected()));
 
-        menu.Items.AddRange([fileMenu, libraryMenu, testMenu, helpMenu]);
+        ToolStripMenuItem rule = new("&Rule");
+        rule.DropDownItems.Add(MenuItem("Add &Rule", Keys.Control | Keys.R, (_, _) => AddRule()));
+        rule.DropDownItems.Add(MenuItem("Duplicate Rule", Keys.Control | Keys.Shift | Keys.D, (_, _) => DuplicateRule()));
+        rule.DropDownItems.Add(MenuItem("Delete Rule", Keys.Delete, (_, _) => DeleteSelected()));
+        rule.DropDownItems.Add(new ToolStripSeparator());
+        rule.DropDownItems.Add(MenuItem("Move Up", Keys.Control | Keys.Up, (_, _) => MoveSelected(-1)));
+        rule.DropDownItems.Add(MenuItem("Move Down", Keys.Control | Keys.Down, (_, _) => MoveSelected(1)));
+
+        ToolStripMenuItem test = new("&Test");
+        test.DropDownItems.Add(MenuItem("&Run Tests...", Keys.F5, (_, _) => TestRules()));
+        test.DropDownItems.Add(MenuItem("Test &Settings...", Keys.None, (_, _) => MessageBox.Show(this, "Test Settings is planned for a future revision.", "Test Settings")));
+        test.DropDownItems.Add(new ToolStripSeparator());
+        test.DropDownItems.Add(MenuItem("Validate &Library", Keys.F6, (_, _) => ValidateLibrary()));
+
+        ToolStripMenuItem view = new("&View");
+        view.DropDownItems.Add(MenuItem("Expand All", Keys.None, (_, _) => _ruleTree.ExpandAll()));
+        view.DropDownItems.Add(MenuItem("Collapse All", Keys.None, (_, _) => _ruleTree.CollapseAll()));
+        view.DropDownItems.Add(MenuItem("Error List", Keys.Control | Keys.E, (_, _) => _errorList.Focus()));
+
+        ToolStripMenuItem tools = new("&Tools");
+        tools.DropDownItems.Add(MenuItem("Options...", Keys.None, (_, _) => MessageBox.Show(this, "Options is planned for a future revision.", "Tools")));
+
+        ToolStripMenuItem help = new("&Help");
+        help.DropDownItems.Add(MenuItem("View Documentation", Keys.F1, (_, _) => MessageBox.Show(this, "See docs/windows-ui.md.", "Documentation")));
+        help.DropDownItems.Add(MenuItem("About NAIware Rule Editor", Keys.None, (_, _) => ShowAbout()));
+
+        menu.Items.AddRange([file, library, context, category, rule, test, view, tools, help]);
         return menu;
     }
 
-    private ToolStrip BuildToolbar()
+    private ToolStrip BuildCommandStrip()
     {
         var strip = new ToolStrip
         {
             Dock = DockStyle.Top,
             GripStyle = ToolStripGripStyle.Hidden,
             RenderMode = ToolStripRenderMode.System,
-            ImageScalingSize = new Size(16, 16)
+            ImageScalingSize = new Size(28, 28),
+            AutoSize = false,
+            Height = 128,
+            Padding = new Padding(8, 6, 8, 0),
+            BackColor = Color.White
         };
 
-        strip.Items.Add(ToolbarButton("New", "Create a new library", (_, _) => NewLibrary()));
-        strip.Items.Add(ToolbarButton("Open", "Open a library from JSON", (_, _) => OpenLibrary()));
-        strip.Items.Add(ToolbarButton("Save", "Save the current library", (_, _) => SaveLibrary()));
+        strip.Items.Add(ToolButton("New\nLibrary", "File", MakeIcon(IconKind.Document, Color.SeaGreen), (_, _) => NewLibrary()));
+        strip.Items.Add(ToolButton("Open\nLibrary", "File", MakeIcon(IconKind.Folder, Color.Goldenrod), (_, _) => OpenLibrary()));
+        strip.Items.Add(ToolButton("Save", "File", MakeIcon(IconKind.Disk, Color.RoyalBlue), (_, _) => SaveLibrary()));
+        strip.Items.Add(ToolButton("Save\nAs", "File", MakeIcon(IconKind.DiskPlus, Color.SteelBlue), (_, _) => SaveLibraryAs()));
         strip.Items.Add(new ToolStripSeparator());
-        strip.Items.Add(ToolbarButton("Add Context From DLL", "Select a DLL and pick a context type", (_, _) => AddContextFromDll()));
-        strip.Items.Add(ToolbarButton("Add Category", "Add a category under the selected context", (_, _) => AddCategory()));
-        strip.Items.Add(ToolbarButton("Add Subcategory", "Add a subcategory under the selected category", (_, _) => AddSubcategory()));
-        strip.Items.Add(ToolbarButton("Add Rule", "Add a rule expression under the selected node", (_, _) => AddRule()));
+
+        strip.Items.Add(ToolButton("Add\nContext", "Library", MakeIcon(IconKind.Database, Color.DimGray), (_, _) => AddContextFromDll()));
+        strip.Items.Add(ToolButton("Manage\nContexts", "Library", MakeIcon(IconKind.Cube, Color.RoyalBlue), (_, _) => MessageBox.Show(this, "Manage Contexts is planned for a future revision.", "Manage Contexts")));
         strip.Items.Add(new ToolStripSeparator());
-        strip.Items.Add(ToolbarButton("Validate Library", "Run full library validation (F6)", (_, _) => ValidateLibrary()));
-        strip.Items.Add(ToolbarButton("Test Rules", "Load a JSON/XML object and run rules against it (F5)", (_, _) => TestRules()));
+
+        strip.Items.Add(ToolButton("Add\nCategory", "Category", MakeIcon(IconKind.FolderPlus, Color.DarkOrange), (_, _) => AddCategory()));
+        strip.Items.Add(ToolButton("Add\nSubcategory", "Category", MakeIcon(IconKind.FolderBranch, Color.Peru), (_, _) => AddSubcategory()));
+        strip.Items.Add(ToolButton("Delete\nCategory", "Category", MakeIcon(IconKind.FolderMinus, Color.IndianRed), (_, _) => DeleteSelected()));
+        strip.Items.Add(ToolButton("Reorder", "Category", MakeIcon(IconKind.Sort, Color.SteelBlue), (_, _) => MessageBox.Show(this, "Use Move Up / Move Down for the selected rule.", "Reorder")));
+        strip.Items.Add(new ToolStripSeparator());
+
+        strip.Items.Add(ToolButton("Add\nRule", "Rule", MakeIcon(IconKind.DocumentPlus, Color.SeaGreen), (_, _) => AddRule()));
+        strip.Items.Add(ToolButton("Duplicate\nRule", "Rule", MakeIcon(IconKind.Copy, Color.DimGray), (_, _) => DuplicateRule()));
+        strip.Items.Add(ToolButton("Delete\nRule", "Rule", MakeIcon(IconKind.Trash, Color.Firebrick), (_, _) => DeleteSelected()));
+        strip.Items.Add(ToolButton("Move\nUp", "Rule", MakeIcon(IconKind.Up, Color.RoyalBlue), (_, _) => MoveSelected(-1)));
+        strip.Items.Add(ToolButton("Move\nDown", "Rule", MakeIcon(IconKind.Down, Color.RoyalBlue), (_, _) => MoveSelected(1)));
+        strip.Items.Add(new ToolStripSeparator());
+
+        strip.Items.Add(ToolButton("Run\nTests", "Test", MakeIcon(IconKind.Play, Color.RoyalBlue), (_, _) => TestRules()));
+        strip.Items.Add(ToolButton("Test\nSettings", "Test", MakeIcon(IconKind.Gear, Color.DimGray), (_, _) => MessageBox.Show(this, "Test Settings is planned for a future revision.", "Test Settings")));
+        strip.Items.Add(new ToolStripSeparator());
+
+        strip.Items.Add(ToolButton("Validate\nLibrary", "Validation", MakeIcon(IconKind.ClipboardCheck, Color.SeaGreen), (_, _) => ValidateLibrary()));
         return strip;
     }
 
-    private Control BuildMainSplit()
+    private Control BuildShell()
     {
-        _errorList.Columns.Add("", 24);            // icon column
-        _errorList.Columns.Add("Severity", 90);
-        _errorList.Columns.Add("Description", 540);
-        _errorList.Columns.Add("Context", 220);
-        _errorList.Columns.Add("Category", 160);
-        _errorList.Columns.Add("Rule", 180);
-        _errorList.Columns.Add("Expression Id", 110);
-        _errorList.SmallImageList = _errorImages;
-
-        var errorPanel = new GroupBox
-        {
-            Dock = DockStyle.Fill,
-            Text = "Error List",
-            Padding = new Padding(4)
-        };
-        errorPanel.Controls.Add(_errorList);
-
-        BuildEditorTabs();
-
-        var treeGroup = new GroupBox { Dock = DockStyle.Fill, Text = "Rule Library", Padding = new Padding(4) };
-        treeGroup.Controls.Add(_tree);
-
-        var editorHost = new Panel { Dock = DockStyle.Fill };
-        editorHost.Controls.Add(_editorTabs);
-        editorHost.Controls.Add(_headerLabel);
-
-        var upperSplit = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Vertical,
-            SplitterWidth = 6,
-            Panel1MinSize = 260
-        };
-        upperSplit.Panel1.Controls.Add(treeGroup);
-        upperSplit.Panel2.Controls.Add(editorHost);
-        upperSplit.HandleCreated += (_, _) => upperSplit.SplitterDistance = 380;
-
-        var mainSplit = new SplitContainer
+        var root = new SplitContainer
         {
             Dock = DockStyle.Fill,
             Orientation = Orientation.Horizontal,
-            SplitterWidth = 6,
-            Panel2MinSize = 140
-        };
-        mainSplit.Panel1.Controls.Add(upperSplit);
-        mainSplit.Panel2.Controls.Add(errorPanel);
-        mainSplit.HandleCreated += (_, _) => mainSplit.SplitterDistance = 560;
-
-        return mainSplit;
-    }
-
-    private void BuildEditorTabs()
-    {
-        _expressionTab = new TabPage("Expression") { Padding = new Padding(12) };
-        _metadataTab = new TabPage("Metadata") { Padding = new Padding(12) };
-        _resultTab = new TabPage("Result Definition") { Padding = new Padding(12) };
-        _contextTab = new TabPage("Context") { Padding = new Padding(12) };
-        _categoryTab = new TabPage("Category") { Padding = new Padding(12) };
-        _libraryTab = new TabPage("Library") { Padding = new Padding(12) };
-
-        _expressionTab.Controls.Add(BuildExpressionEditor());
-        _metadataTab.Controls.Add(BuildMetadataEditor());
-        _resultTab.Controls.Add(BuildResultEditor());
-        _contextTab.Controls.Add(BuildContextEditor());
-        _categoryTab.Controls.Add(BuildCategoryEditor());
-        _libraryTab.Controls.Add(BuildLibraryEditor());
-    }
-
-    private Control BuildExpressionEditor()
-    {
-        var host = new Panel { Dock = DockStyle.Fill };
-        host.Controls.Add(_expressionTextBox);
-        host.Controls.Add(_intellisenseListBox);
-
-        var hint = new Label
-        {
-            Dock = DockStyle.Bottom,
-            Height = 28,
-            ForeColor = SystemColors.GrayText,
-            Padding = new Padding(2, 6, 2, 0),
-            Text = "Supports AND / OR, parentheses, dot notation (Foo.Bar.Baz), indexed collections (Items.0), and quoted strings."
+            SplitterWidth = 5
         };
 
-        var panel = new TableLayoutPanel
+        var top = new SplitContainer
         {
             Dock = DockStyle.Fill,
-            RowCount = 2,
-            ColumnCount = 1,
-            BackColor = Color.Transparent
+            Orientation = Orientation.Vertical,
+            SplitterWidth = 4
         };
-        panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        panel.Controls.Add(host, 0, 0);
-        panel.Controls.Add(hint, 0, 1);
 
+        var editorAndProps = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            Orientation = Orientation.Vertical,
+            SplitterWidth = 4
+        };
+
+        top.Panel1.Controls.Add(BuildLibraryPanel());
+        editorAndProps.Panel1.Controls.Add(BuildEditorPanel());
+        editorAndProps.Panel2.Controls.Add(BuildPropertiesPanel());
+        top.Panel2.Controls.Add(editorAndProps);
+
+        root.Panel1.Controls.Add(top);
+        root.Panel2.Controls.Add(BuildErrorPanel());
+
+        ApplySplitLayout();
+
+        void OnLayoutChanged(object? _, EventArgs __) => ApplySplitLayout();
+        root.HandleCreated += OnLayoutChanged;
+        root.SizeChanged += OnLayoutChanged;
+        top.SizeChanged += OnLayoutChanged;
+        editorAndProps.SizeChanged += OnLayoutChanged;
+
+        void ApplySplitLayout()
+        {
+            ConfigureSplit(root, panel1MinSize: 0, panel2MinSize: 165, preferredDistance: root.Height - 360);
+            ConfigureSplit(top, panel1MinSize: 260, panel2MinSize: 500, preferredDistance: 410);
+            ConfigureSplit(editorAndProps, panel1MinSize: 420, panel2MinSize: 250, preferredDistance: editorAndProps.Width - 760);
+        }
+
+        static void ConfigureSplit(SplitContainer split, int panel1MinSize, int panel2MinSize, int preferredDistance)
+        {
+            int length = split.Orientation == Orientation.Vertical ? split.Width : split.Height;
+            if (length <= 0) return;
+
+            int maxPanelSpace = Math.Max(0, length - split.SplitterWidth);
+
+            int p1 = Math.Max(0, panel1MinSize);
+            int p2 = Math.Max(0, panel2MinSize);
+            if (p1 + p2 > maxPanelSpace)
+            {
+                if (p2 >= maxPanelSpace)
+                {
+                    p2 = maxPanelSpace;
+                    p1 = 0;
+                }
+                else
+                {
+                    p1 = maxPanelSpace - p2;
+                }
+            }
+
+            split.Panel1MinSize = p1;
+            split.Panel2MinSize = p2;
+
+            int minDistance = split.Panel1MinSize;
+            int maxDistance = Math.Max(minDistance, length - split.Panel2MinSize);
+            split.SplitterDistance = Math.Clamp(preferredDistance, minDistance, maxDistance);
+        }
+
+        return root;
+    }
+
+    private Control BuildLibraryPanel()
+    {
+        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8), BackColor = Color.White };
+        var title = new Label
+        {
+            Text = "Rule Library",
+            Dock = DockStyle.Top,
+            Height = 28,
+            Font = new Font("Segoe UI Semibold", 10f),
+            Padding = new Padding(0, 4, 0, 0)
+        };
+
+        var searchHost = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(0, 4, 0, 4) };
+        searchHost.Controls.Add(_treeSearchTextBox);
+        panel.Controls.Add(_ruleTree);
+        panel.Controls.Add(_libraryCountLabel);
+        panel.Controls.Add(searchHost);
+        panel.Controls.Add(title);
         return panel;
     }
 
-    private Control BuildMetadataEditor() =>
-        StackPanel(
-            ("Priority", _priorityNumeric),
-            ("Tags", _tagsTextBox),
-            ("Enabled", _activeCheckBox),
-            ("Description", _descriptionTextBox),
-            ("Name", _nameTextBox));
+    private Control BuildEditorPanel()
+    {
+        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12), BackColor = Color.White };
+        panel.Controls.Add(BuildResultDefinitionPanel());
+        panel.Controls.Add(BuildExpressionPanel());
+        panel.Controls.Add(_documentTabLabel);
+        return panel;
+    }
 
-    private Control BuildResultEditor() =>
-        StackPanel(
-            ("Optional Value", _optionalValueTextBox),
-            ("Severity", _severityComboBox),
-            ("Message", _resultMessageTextBox),
-            ("Code", _resultCodeTextBox));
+    private Control BuildExpressionPanel()
+    {
+        var group = new GroupBox { Text = "Expression", Dock = DockStyle.Fill, Padding = new Padding(12) };
+        var topBar = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(0, 0, 0, 6) };
+        var fx = new Label
+        {
+            Text = "ƒx",
+            Dock = DockStyle.Right,
+            Width = 38,
+            Font = new Font("Segoe UI", 16f, FontStyle.Italic),
+            TextAlign = ContentAlignment.MiddleCenter
+        };
+        var validate = new Button { Text = "✓ Validate", Dock = DockStyle.Right, Width = 110 };
+        var insert = new ComboBox { Dock = DockStyle.Right, Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
+        insert.Items.AddRange(["Insert", "Property", "Operator", "Keyword"]);
+        insert.SelectedIndex = 0;
+        insert.SelectedIndexChanged += (_, _) => InsertSelectedSuggestion(insert);
+        validate.Click += (_, _) => ValidateLibrary();
+        topBar.Controls.Add(validate);
+        topBar.Controls.Add(insert);
+        topBar.Controls.Add(fx);
 
-    private Control BuildContextEditor() =>
-        StackPanel(
-            ("Source Assembly", _contextAssemblyTextBox),
-            ("Description", _contextDescriptionTextBox),
-            ("Qualified Type Name", _contextTypeTextBox),
-            ("Context Name", _contextNameTextBox));
+        var editorHost = new Panel { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White };
+        var lineNumbers = new Label
+        {
+            Dock = DockStyle.Left,
+            Width = 58,
+            Text = "1\r\n2\r\n3\r\n4\r\n5",
+            Font = _expressionTextBox.Font,
+            ForeColor = Color.Gray,
+            TextAlign = ContentAlignment.TopRight,
+            Padding = new Padding(0, 8, 12, 0),
+            BackColor = Color.FromArgb(248, 248, 248)
+        };
+        _expressionTextBox.Padding = new Padding(8);
+        editorHost.Controls.Add(_expressionTextBox);
+        editorHost.Controls.Add(_intelliSenseListBox);
+        editorHost.Controls.Add(lineNumbers);
 
-    private Control BuildCategoryEditor() =>
-        StackPanel(
-            ("Description", _categoryDescriptionTextBox),
-            ("Category Name", _categoryNameTextBox));
+        group.Controls.Add(editorHost);
+        group.Controls.Add(topBar);
+        return group;
+    }
 
-    private Control BuildLibraryEditor() =>
-        StackPanel(
-            ("Description", _libraryDescriptionTextBox),
-            ("Library Name", _libraryNameTextBox));
+    private Control BuildResultDefinitionPanel()
+    {
+        var group = new GroupBox { Text = "Result Definition", Dock = DockStyle.Bottom, Height = 212, Padding = new Padding(12) };
+        var table = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 4,
+            Padding = new Padding(0)
+        };
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        for (int i = 0; i < 4; i++) table.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+
+        AddRow(table, 0, "Code:", _resultCodeTextBox);
+        AddRow(table, 1, "Message:", _resultMessageTextBox);
+        AddRow(table, 2, "Severity:", _severityComboBox);
+        AddRow(table, 3, "Value:", _optionalValueTextBox);
+        group.Controls.Add(table);
+        return group;
+    }
+
+    private Control BuildPropertiesPanel()
+    {
+        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(14, 10, 14, 8), BackColor = Color.White };
+        var title = new Label
+        {
+            Text = "Rule Properties                                      ×",
+            Dock = DockStyle.Top,
+            Height = 32,
+            Font = new Font("Segoe UI Semibold", 10f),
+            Padding = new Padding(0, 6, 0, 0)
+        };
+
+        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+        var content = new Panel { Dock = DockStyle.Top, Height = 520 };
+
+        int y = 6;
+        AddSection(content, "▣  General", ref y);
+        AddPropertyLabelAndControl(content, "Name:", _ruleNameTextBox, ref y, 26);
+        AddPropertyLabelAndControl(content, "Description:", _ruleDescriptionTextBox, ref y, 56);
+        AddPropertyLabelAndControl(content, "Enabled:", _ruleEnabledCheckBox, ref y, 26);
+        AddPropertyLabelAndControl(content, "Tags:", _tagsTextBox, ref y, 26);
+        AddPropertyLabelAndControl(content, "Priority:", _priorityNumeric, ref y, 26);
+        y += 12;
+        AddSection(content, "▣  Metadata", ref y);
+        AddInfoLabel(content, _createdByLabel, ref y);
+        AddInfoLabel(content, _createdOnLabel, ref y);
+        AddInfoLabel(content, _modifiedByLabel, ref y);
+        AddInfoLabel(content, _modifiedOnLabel, ref y);
+        y += 12;
+        AddSection(content, "▣  Context", ref y);
+        AddInfoLabel(content, _contextNameLabel, ref y);
+        AddInfoLabel(content, _contextTypeLabel, ref y);
+        content.Height = y + 20;
+
+        scroll.Controls.Add(content);
+        panel.Controls.Add(scroll);
+        panel.Controls.Add(title);
+        return panel;
+    }
+
+    private Control BuildErrorPanel()
+    {
+        var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+        var bar = new Panel { Dock = DockStyle.Top, Height = 40, Padding = new Padding(8, 7, 8, 5), BackColor = Color.WhiteSmoke };
+        var label = new Label
+        {
+            Text = "Error List",
+            Dock = DockStyle.Left,
+            Width = 80,
+            Font = new Font("Segoe UI Semibold", 9.5f),
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        var all = new Button { Text = "All (0)", Dock = DockStyle.Left, Width = 76 };
+        var errors = new Button { Text = "Errors (0)", Dock = DockStyle.Left, Width = 92 };
+        var warnings = new Button { Text = "⚠ Warnings (0)", Dock = DockStyle.Left, Width = 118 };
+        var info = new Button { Text = "ⓘ Info (0)", Dock = DockStyle.Left, Width = 90 };
+        bar.Controls.Add(_errorSearchTextBox);
+        bar.Controls.Add(info);
+        bar.Controls.Add(warnings);
+        bar.Controls.Add(errors);
+        bar.Controls.Add(all);
+        bar.Controls.Add(label);
+
+        _errorList.Columns.Add("Severity", 120);
+        _errorList.Columns.Add("Message", 690);
+        _errorList.Columns.Add("Context", 140);
+        _errorList.Columns.Add("Category", 150);
+        _errorList.Columns.Add("Rule", 200);
+        _errorList.Columns.Add("Line", 80);
+        _errorList.Columns.Add("Column", 80);
+
+        panel.Controls.Add(_errorList);
+        panel.Controls.Add(bar);
+        return panel;
+    }
 
     private StatusStrip BuildStatusBar()
     {
-        _statusStrip.Items.Add(_statusLabel);
-        _statusStrip.Items.Add(_countsLabel);
+        _statusStrip.Items.Add(_readyStatusLabel);
+        _statusStrip.Items.Add(_libraryStatusLabel);
+        _statusStrip.Items.Add(new ToolStripStatusLabel("   "));
+        _statusStrip.Items.Add(_validationStatusLabel);
         return _statusStrip;
     }
 
-    private static Control StackPanel(params (string Label, Control Control)[] rowsTopToBottom)
+    private static void AddRow(TableLayoutPanel table, int row, string labelText, Control control)
     {
-        // WinForms Dock=Top stacks in reverse order; we accept the list top-to-bottom
-        // visually and iterate the array as given, which puts the first entry at the bottom.
-        // We reverse here so the first entry in the argument list appears at the top.
-        var panel = new Panel { Dock = DockStyle.Fill };
+        var label = new Label { Text = labelText, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+        control.Margin = new Padding(0, 3, 0, 3);
+        table.Controls.Add(label, 0, row);
+        table.Controls.Add(control, 1, row);
+    }
 
-        foreach ((string labelText, Control control) in rowsTopToBottom)
+    private static void AddSection(Control parent, string text, ref int y)
+    {
+        var label = new Label
         {
-            var label = new Label
-            {
-                Text = labelText,
-                Dock = DockStyle.Top,
-                Height = 22,
-                Font = new Font("Segoe UI Semibold", 8.5f),
-                ForeColor = SystemColors.ControlText,
-                Padding = new Padding(0, 4, 0, 0)
-            };
-            control.Dock = control.Dock == DockStyle.None ? DockStyle.Top : control.Dock;
-            control.Margin = new Padding(0, 0, 0, 8);
+            Text = text,
+            Font = new Font("Segoe UI Semibold", 9.5f),
+            Location = new Point(0, y),
+            Size = new Size(parent.Width - 12, 28),
+            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+        };
+        parent.Controls.Add(label);
+        y += 32;
+    }
 
-            panel.Controls.Add(control);
-            panel.Controls.Add(label);
+    private static void AddPropertyLabelAndControl(Control parent, string labelText, Control control, ref int y, int height)
+    {
+        var label = new Label { Text = labelText, Location = new Point(8, y + 4), Size = new Size(100, height), TextAlign = ContentAlignment.TopLeft };
+        control.Location = new Point(118, y);
+        control.Size = new Size(parent.Width - 130, height);
+        control.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        parent.Controls.Add(label);
+        parent.Controls.Add(control);
+        y += height + 10;
+    }
+
+    private static void AddInfoLabel(Control parent, Label label, ref int y)
+    {
+        label.Location = new Point(8, y);
+        label.Size = new Size(parent.Width - 16, label.Height);
+        label.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        parent.Controls.Add(label);
+        y += label.Height + 2;
+    }
+
+    private void WireEditorEvents()
+    {
+        foreach (Control control in new Control[]
+        {
+            _expressionTextBox, _resultCodeTextBox, _resultMessageTextBox, _optionalValueTextBox,
+            _ruleNameTextBox, _ruleDescriptionTextBox, _tagsTextBox
+        })
+        {
+            if (control is TextBox textBox) textBox.TextChanged += (_, _) => OnEditorChanged();
         }
 
-        return panel;
+        _ruleEnabledCheckBox.CheckedChanged += (_, _) => OnEditorChanged();
+        _priorityNumeric.ValueChanged += (_, _) => OnEditorChanged();
+        _severityComboBox.SelectedIndexChanged += (_, _) => OnEditorChanged();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Icons (drawn programmatically so no binary assets are required)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void BuildIcons()
+    private void WireIntelliSenseEvents()
     {
-        _treeImages.Images.Add("library", RenderIcon("L", Color.SteelBlue));
-        _treeImages.Images.Add("context", RenderIcon("C", Color.MediumSeaGreen));
-        _treeImages.Images.Add("category", RenderIcon("G", Color.DarkOrange));
-        _treeImages.Images.Add("rule", RenderIcon("R", Color.MediumPurple));
-
-        _errorImages.Images.Add("Error", RenderIcon("!", Color.Firebrick));
-        _errorImages.Images.Add("Warning", RenderIcon("!", Color.Goldenrod));
-        _errorImages.Images.Add("Info", RenderIcon("i", Color.SteelBlue));
-    }
-
-    private static Image RenderIcon(string glyph, Color color)
-    {
-        var bmp = new Bitmap(16, 16);
-        using var g = Graphics.FromImage(bmp);
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-        using var brush = new SolidBrush(color);
-        g.FillEllipse(brush, 0, 0, 15, 15);
-        using var textBrush = new SolidBrush(Color.White);
-        using var font = new Font("Segoe UI Semibold", 8f, FontStyle.Bold);
-        var size = g.MeasureString(glyph, font);
-        g.DrawString(glyph, font, textBrush, (16 - size.Width) / 2, (16 - size.Height) / 2);
-        return bmp;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // File operations
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private bool ConfirmDiscardChanges()
-    {
-        if (!_dirty) return true;
-
-        DialogResult choice = MessageBox.Show(this,
-            "The current library has unsaved changes. Save before continuing?",
-            "Unsaved Changes",
-            MessageBoxButtons.YesNoCancel,
-            MessageBoxIcon.Question);
-
-        return choice switch
+        _expressionTextBox.KeyUp += (_, e) =>
         {
-            DialogResult.Yes => SaveLibrary(),
-            DialogResult.No => true,
-            _ => false
+            if (e.KeyCode is Keys.Up or Keys.Down or Keys.Enter or Keys.Escape) return;
+            ShowIntelliSense();
         };
+        _expressionTextBox.KeyDown += (_, e) =>
+        {
+            if (!_intelliSenseListBox.Visible) return;
+
+            if (e.KeyCode == Keys.Down)
+            {
+                if (_intelliSenseListBox.SelectedIndex < _intelliSenseListBox.Items.Count - 1)
+                    _intelliSenseListBox.SelectedIndex++;
+                e.SuppressKeyPress = true;
+            }
+            else if (e.KeyCode == Keys.Up)
+            {
+                if (_intelliSenseListBox.SelectedIndex > 0) _intelliSenseListBox.SelectedIndex--;
+                e.SuppressKeyPress = true;
+            }
+            else if (e.KeyCode is Keys.Enter or Keys.Tab)
+            {
+                InsertIntelliSenseSelection();
+                e.SuppressKeyPress = true;
+            }
+            else if (e.KeyCode == Keys.Escape)
+            {
+                _intelliSenseListBox.Visible = false;
+                e.SuppressKeyPress = true;
+            }
+        };
+        _intelliSenseListBox.DoubleClick += (_, _) => InsertIntelliSenseSelection();
+    }
+
+    private void OnEditorChanged()
+    {
+        if (_binding) return;
+        FlushSelectionToModel();
+        _dirty = true;
+        UpdateWindowTitle();
     }
 
     private void NewLibrary()
     {
         if (!ConfirmDiscardChanges()) return;
-        _library = new RuleLibraryDocument();
+        _library = new RuleLibraryDocument { Name = "New Rule Library" };
         _currentFile = null;
         _dirty = false;
-        _intellisense.Invalidate();
-        RefreshTree();
-        ClearEditors();
         _errorList.Items.Clear();
-        UpdateStatus("New library created.");
+        RefreshTree();
+        UpdateCountsAndStatus("New library created.");
         UpdateWindowTitle();
     }
 
     private void OpenLibrary()
     {
         if (!ConfirmDiscardChanges()) return;
-
-        using var dialog = new OpenFileDialog
-        {
-            Filter = "Rule Library JSON (*.json)|*.json|All files (*.*)|*.*",
-            Title = "Open Rule Library"
-        };
-
+        using var dialog = new OpenFileDialog { Filter = "Rule Library JSON (*.json)|*.json|All files (*.*)|*.*", Title = "Open Rule Library" };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
 
         try
@@ -472,24 +652,21 @@ public sealed class MainForm : Form
             _library = RuleLibrarySerializer.Load(dialog.FileName);
             _currentFile = dialog.FileName;
             _dirty = false;
-            _intellisense.Invalidate();
-            RefreshTree();
-            ClearEditors();
+            _intelliSense.Invalidate();
             _errorList.Items.Clear();
-            UpdateStatus($"Opened {Path.GetFileName(_currentFile)}.");
+            RefreshTree();
+            UpdateCountsAndStatus($"Opened {Path.GetFileName(dialog.FileName)}.");
             UpdateWindowTitle();
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Unable to open library", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, ex.Message, "Open Library", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
     private bool SaveLibrary()
     {
-        if (string.IsNullOrEmpty(_currentFile))
-            return SaveLibraryAs();
-
+        if (string.IsNullOrWhiteSpace(_currentFile)) return SaveLibraryAs();
         return SaveTo(_currentFile);
     }
 
@@ -498,10 +675,9 @@ public sealed class MainForm : Form
         using var dialog = new SaveFileDialog
         {
             Filter = "Rule Library JSON (*.json)|*.json",
-            FileName = string.IsNullOrWhiteSpace(_library.Name) ? "rule-library.json" : $"{SafeFileName(_library.Name)}.json",
+            FileName = string.IsNullOrWhiteSpace(_library.Name) ? "rule-library.json" : SafeFileName(_library.Name) + ".json",
             Title = "Save Rule Library As"
         };
-
         if (dialog.ShowDialog(this) != DialogResult.OK) return false;
         return SaveTo(dialog.FileName);
     }
@@ -510,803 +686,800 @@ public sealed class MainForm : Form
     {
         try
         {
-            FlushEditorsToModel();
+            FlushSelectionToModel();
             RuleLibrarySerializer.Save(path, _library);
             _currentFile = path;
             _dirty = false;
-            UpdateStatus($"Saved {Path.GetFileName(path)}.");
+            UpdateCountsAndStatus($"Saved {Path.GetFileName(path)}.");
             UpdateWindowTitle();
             return true;
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Unable to save library", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, ex.Message, "Save Library", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
     }
 
-    private static string SafeFileName(string raw)
-    {
-        char[] invalid = Path.GetInvalidFileNameChars();
-        return new string(raw.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Tree editing
-    // ─────────────────────────────────────────────────────────────────────────
-
     private void AddContextFromDll()
     {
-        using var openDll = new OpenFileDialog
-        {
-            Filter = ".NET Assemblies (*.dll)|*.dll|All files (*.*)|*.*",
-            Title = "Select Assembly"
-        };
+        using var dialog = new OpenFileDialog { Filter = ".NET Assemblies (*.dll)|*.dll|All files (*.*)|*.*", Title = "Select Context Assembly" };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
 
-        if (openDll.ShowDialog(this) != DialogResult.OK) return;
-
-        IReadOnlyList<ReflectedTypeInfo> types;
         try
         {
-            types = _typeDiscovery.DiscoverTypes(openDll.FileName);
+            IReadOnlyList<ReflectedTypeInfo> types = _typeDiscovery.DiscoverTypes(dialog.FileName);
+            using var picker = new ContextTypePickerDialog(types);
+            if (picker.ShowDialog(this) != DialogResult.OK || picker.SelectedType is null) return;
+
+            ReflectedTypeInfo selected = picker.SelectedType;
+            _library.Contexts.Add(new RuleContextDocument
+            {
+                Name = selected.Type?.Name ?? selected.DisplayName,
+                QualifiedTypeName = selected.FullName,
+                AssemblyPath = selected.AssemblyPath,
+                Description = $"Rules for {selected.FullName}."
+            });
+            _intelliSense.Invalidate();
+            _dirty = true;
+            RefreshTree();
+            UpdateCountsAndStatus($"Added context {selected.FullName}.");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Unable to load assembly", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
+            MessageBox.Show(this, ex.Message, "Add Context From DLL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
-
-        if (types.Count == 0)
-        {
-            MessageBox.Show(this, "The selected assembly does not contain any public concrete classes.",
-                "No Types Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        using var picker = new ContextTypePickerDialog(types);
-        if (picker.ShowDialog(this) != DialogResult.OK || picker.SelectedType is null) return;
-
-        _library.Contexts.Add(new RuleContextDocument
-        {
-            Name = picker.SelectedType.DisplayName,
-            QualifiedTypeName = picker.SelectedType.FullName,
-            AssemblyPath = picker.SelectedType.AssemblyPath
-        });
-
-        _intellisense.Invalidate();
-        MarkDirty();
-        RefreshTree();
-        UpdateStatus($"Added context '{picker.SelectedType.DisplayName}'.");
     }
 
     private void AddCategory()
     {
-        RuleContextDocument? context = FindSelectedContext();
-        if (context is null)
-        {
-            MessageBox.Show(this, "Select a context before adding a category.", "Add Category",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        context.Categories.Add(new RuleCategoryDocument { Name = "New Category" });
-        MarkDirty();
+        RuleContextDocument? context = GetSelectedContext();
+        if (context is null) return;
+        context.Categories.Add(new RuleCategoryDocument { Name = NextNumberedName(context.Categories.Select(c => c.Name), "New Category") });
+        _dirty = true;
         RefreshTree();
     }
 
     private void AddSubcategory()
     {
-        if (_tree.SelectedNode?.Tag is not RuleCategoryDocument parent)
+        RuleCategoryDocument? category = GetSelectedCategory();
+        if (category is null)
         {
-            MessageBox.Show(this, "Select a category before adding a subcategory.", "Add Subcategory",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            AddCategory();
             return;
         }
-
-        parent.Categories.Add(new RuleCategoryDocument { Name = "New Subcategory" });
-        MarkDirty();
+        category.Categories.Add(new RuleCategoryDocument { Name = NextNumberedName(category.Categories.Select(c => c.Name), "New Subcategory") });
+        _dirty = true;
         RefreshTree();
     }
 
     private void AddRule()
     {
-        RuleContextDocument? context = FindSelectedContext();
-        if (context is null)
-        {
-            MessageBox.Show(this, "Select a context, category, or rule before adding a new rule.",
-                "Add Rule", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
+        RuleContextDocument? context = GetSelectedContext();
+        if (context is null) return;
 
         var rule = new RuleExpressionDocument
         {
-            Name = "NewRule",
-            Expression = $"{context.Name}.Amount > 0"
+            Name = NextNumberedName(context.Expressions.Select(e => e.Name), "New Rule"),
+            Expression = "Loan.Amount > 1000",
+            ResultCode = "RULE-001",
+            ResultMessage = "Rule matched.",
+            Severity = "Warning",
+            IsActive = true,
+            Priority = 10
         };
-
         context.Expressions.Add(rule);
 
-        if (_tree.SelectedNode?.Tag is RuleCategoryDocument category)
-            category.ExpressionIds.Add(rule.Id);
+        RuleCategoryDocument? category = GetSelectedCategory();
+        category?.ExpressionIds.Add(rule.Id);
+        _dirty = true;
+        RefreshTree(rule.Id);
+    }
 
-        MarkDirty();
-        RefreshTree();
-        SelectNodeForRule(rule.Id);
+    private void DuplicateRule()
+    {
+        if (GetSelectedRule() is not { } selected || GetSelectedContext() is not { } context) return;
+        var copy = new RuleExpressionDocument
+        {
+            Name = selected.Name + " Copy",
+            Description = selected.Description,
+            Expression = selected.Expression,
+            IsActive = selected.IsActive,
+            Priority = selected.Priority,
+            Tags = [.. selected.Tags],
+            ResultCode = selected.ResultCode,
+            ResultMessage = selected.ResultMessage,
+            Severity = selected.Severity,
+            OptionalValue = selected.OptionalValue
+        };
+        context.Expressions.Add(copy);
+        GetSelectedCategory()?.ExpressionIds.Add(copy.Id);
+        _dirty = true;
+        RefreshTree(copy.Id);
     }
 
     private void DeleteSelected()
     {
-        TreeNode? node = _tree.SelectedNode;
-        if (node?.Tag is null) return;
+        if (_ruleTree.SelectedNode?.Tag is null) return;
+        if (MessageBox.Show(this, "Delete the selected item?", "Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
 
-        string target = node.Tag switch
+        object tag = _ruleTree.SelectedNode.Tag;
+        if (tag is RuleExpressionDocument rule && GetSelectedContext() is { } context)
         {
-            RuleContextDocument ctx => $"context '{ctx.Name}' and all of its categories and rules",
-            RuleCategoryDocument cat => $"category '{cat.Name}'",
-            RuleExpressionDocument rule => $"rule '{rule.Name}'",
-            _ => "the selected item"
-        };
-
-        if (MessageBox.Show(this, $"Delete {target}? This cannot be undone.", "Delete",
-                MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
-            return;
-
-        switch (node.Tag)
+            context.Expressions.Remove(rule);
+            RemoveRuleReferences(context.Categories, rule.Id);
+        }
+        else if (tag is RuleCategoryDocument category && GetSelectedContext() is { } selectedContext)
         {
-            case RuleContextDocument ctx:
-                _library.Contexts.Remove(ctx);
-                break;
-            case RuleCategoryDocument cat:
-                RemoveCategoryRecursive(_library, cat);
-                break;
-            case RuleExpressionDocument rule:
-                RemoveRule(_library, rule);
-                break;
+            RemoveCategory(selectedContext.Categories, category);
+        }
+        else if (tag is RuleContextDocument contextDoc)
+        {
+            _library.Contexts.Remove(contextDoc);
         }
 
-        MarkDirty();
+        _dirty = true;
         RefreshTree();
-        ClearEditors();
     }
 
-    private static void RemoveCategoryRecursive(RuleLibraryDocument library, RuleCategoryDocument target)
+    private void MoveSelected(int direction)
     {
-        foreach (RuleContextDocument context in library.Contexts)
-        {
-            if (context.Categories.Remove(target)) return;
-            foreach (RuleCategoryDocument category in context.Categories)
-                if (RemoveFromCategoryTree(category, target)) return;
-        }
+        if (GetSelectedRule() is not { } rule || GetSelectedContext() is not { } context) return;
+        List<RuleExpressionDocument> list = context.Expressions;
+        int index = list.IndexOf(rule);
+        int newIndex = index + direction;
+        if (index < 0 || newIndex < 0 || newIndex >= list.Count) return;
+        list.RemoveAt(index);
+        list.Insert(newIndex, rule);
+        _dirty = true;
+        RefreshTree(rule.Id);
     }
-
-    private static bool RemoveFromCategoryTree(RuleCategoryDocument parent, RuleCategoryDocument target)
-    {
-        if (parent.Categories.Remove(target)) return true;
-        foreach (RuleCategoryDocument child in parent.Categories)
-            if (RemoveFromCategoryTree(child, target)) return true;
-        return false;
-    }
-
-    private static void RemoveRule(RuleLibraryDocument library, RuleExpressionDocument rule)
-    {
-        foreach (RuleContextDocument context in library.Contexts)
-        {
-            if (context.Expressions.Remove(rule))
-            {
-                RemoveRuleIdFromCategories(context.Categories, rule.Id);
-                return;
-            }
-        }
-    }
-
-    private static void RemoveRuleIdFromCategories(List<RuleCategoryDocument> categories, Guid id)
-    {
-        foreach (RuleCategoryDocument category in categories)
-        {
-            category.ExpressionIds.Remove(id);
-            RemoveRuleIdFromCategories(category.Categories, id);
-        }
-    }
-
-    private void ShowTreeContextMenu(Point location)
-    {
-        var menu = new ContextMenuStrip();
-
-        if (_tree.SelectedNode?.Tag is RuleContextDocument)
-        {
-            menu.Items.Add("Add Category", null, (_, _) => AddCategory());
-            menu.Items.Add("Add Rule", null, (_, _) => AddRule());
-        }
-        else if (_tree.SelectedNode?.Tag is RuleCategoryDocument)
-        {
-            menu.Items.Add("Add Subcategory", null, (_, _) => AddSubcategory());
-            menu.Items.Add("Add Rule", null, (_, _) => AddRule());
-        }
-
-        if (menu.Items.Count > 0) menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Delete", null, (_, _) => DeleteSelected());
-        menu.Show(_tree, location);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Tree refresh & selection binding
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void RefreshTree()
-    {
-        Guid? previouslySelectedRule = (_tree.SelectedNode?.Tag as RuleExpressionDocument)?.Id;
-
-        _tree.BeginUpdate();
-        _tree.Nodes.Clear();
-
-        var root = _tree.Nodes.Add(_library.Name);
-        root.Tag = _library;
-        root.ImageKey = root.SelectedImageKey = "library";
-        root.ToolTipText = _library.Description;
-
-        foreach (RuleContextDocument context in _library.Contexts)
-        {
-            TreeNode contextNode = root.Nodes.Add(context.Name);
-            contextNode.Tag = context;
-            contextNode.ImageKey = contextNode.SelectedImageKey = "context";
-            contextNode.ToolTipText = context.QualifiedTypeName;
-
-            foreach (RuleCategoryDocument category in context.Categories)
-                AddCategoryNode(contextNode, category, context);
-
-            List<RuleExpressionDocument> unassigned = context.Expressions
-                .Where(e => !IsExpressionInAnyCategory(context.Categories, e.Id))
-                .ToList();
-
-            foreach (RuleExpressionDocument rule in unassigned)
-                AddRuleNode(contextNode, rule);
-        }
-
-        _tree.EndUpdate();
-        root.ExpandAll();
-
-        if (previouslySelectedRule is Guid id) SelectNodeForRule(id);
-    }
-
-    private static void AddCategoryNode(TreeNode parent, RuleCategoryDocument category, RuleContextDocument context)
-    {
-        TreeNode node = parent.Nodes.Add(category.Name);
-        node.Tag = category;
-        node.ImageKey = node.SelectedImageKey = "category";
-        node.ToolTipText = category.Description;
-
-        foreach (RuleCategoryDocument child in category.Categories)
-            AddCategoryNode(node, child, context);
-
-        foreach (Guid id in category.ExpressionIds)
-        {
-            RuleExpressionDocument? rule = context.Expressions.FirstOrDefault(e => e.Id == id);
-            if (rule is not null) AddRuleNode(node, rule);
-        }
-    }
-
-    private static void AddRuleNode(TreeNode parent, RuleExpressionDocument rule)
-    {
-        TreeNode node = parent.Nodes.Add(rule.Name);
-        node.Tag = rule;
-        node.ImageKey = node.SelectedImageKey = "rule";
-        node.ToolTipText = rule.Description;
-    }
-
-    private static bool IsExpressionInAnyCategory(IEnumerable<RuleCategoryDocument> categories, Guid id) =>
-        categories.Any(c => c.ExpressionIds.Contains(id) || IsExpressionInAnyCategory(c.Categories, id));
-
-    private void SelectNodeForRule(Guid id)
-    {
-        TreeNode? found = FindNode(_tree.Nodes, id);
-        if (found is not null) _tree.SelectedNode = found;
-    }
-
-    private static TreeNode? FindNode(TreeNodeCollection nodes, Guid id)
-    {
-        foreach (TreeNode node in nodes)
-        {
-            if (node.Tag is RuleExpressionDocument rule && rule.Id == id) return node;
-            TreeNode? nested = FindNode(node.Nodes, id);
-            if (nested is not null) return nested;
-        }
-        return null;
-    }
-
-    private void OnTreeSelectionChanged(object? sender, TreeViewEventArgs e)
-    {
-        FlushEditorsToModel();
-        BindSelectedNode();
-    }
-
-    private void BindSelectedNode()
-    {
-        _suspendBinding = true;
-        try
-        {
-            object? tag = _tree.SelectedNode?.Tag;
-
-            _editorTabs.TabPages.Clear();
-
-            switch (tag)
-            {
-                case RuleExpressionDocument rule:
-                    _headerLabel.Text = $"Rule · {rule.Name}";
-                    _nameTextBox.Text = rule.Name;
-                    _descriptionTextBox.Text = rule.Description;
-                    _activeCheckBox.Checked = rule.IsActive;
-                    _priorityNumeric.Value = Math.Clamp(rule.Priority, 0, 9999);
-                    _tagsTextBox.Text = string.Join(", ", rule.Tags);
-                    _expressionTextBox.Text = rule.Expression;
-                    _resultCodeTextBox.Text = rule.ResultCode ?? string.Empty;
-                    _resultMessageTextBox.Text = rule.ResultMessage ?? string.Empty;
-                    _severityComboBox.SelectedItem = rule.Severity ?? "Warning";
-                    _optionalValueTextBox.Text = rule.OptionalValue ?? string.Empty;
-
-                    _editorTabs.TabPages.Add(_expressionTab!);
-                    _editorTabs.TabPages.Add(_metadataTab!);
-                    _editorTabs.TabPages.Add(_resultTab!);
-                    _editorTabs.SelectedTab = _expressionTab;
-                    break;
-
-                case RuleContextDocument context:
-                    _headerLabel.Text = $"Context · {context.Name}";
-                    _contextNameTextBox.Text = context.Name;
-                    _contextTypeTextBox.Text = context.QualifiedTypeName;
-                    _contextDescriptionTextBox.Text = context.Description;
-                    _contextAssemblyTextBox.Text = context.AssemblyPath ?? string.Empty;
-
-                    _editorTabs.TabPages.Add(_contextTab!);
-                    _editorTabs.SelectedTab = _contextTab;
-                    break;
-
-                case RuleCategoryDocument category:
-                    _headerLabel.Text = $"Category · {category.Name}";
-                    _categoryNameTextBox.Text = category.Name;
-                    _categoryDescriptionTextBox.Text = category.Description;
-
-                    _editorTabs.TabPages.Add(_categoryTab!);
-                    _editorTabs.SelectedTab = _categoryTab;
-                    break;
-
-                case RuleLibraryDocument library:
-                    _headerLabel.Text = $"Library · {library.Name}";
-                    _libraryNameTextBox.Text = library.Name;
-                    _libraryDescriptionTextBox.Text = library.Description;
-
-                    _editorTabs.TabPages.Add(_libraryTab!);
-                    _editorTabs.SelectedTab = _libraryTab;
-                    break;
-
-                default:
-                    _headerLabel.Text = "Select an item in the library tree.";
-                    break;
-            }
-        }
-        finally
-        {
-            _suspendBinding = false;
-        }
-    }
-
-    private void ClearEditors()
-    {
-        _editorTabs.TabPages.Clear();
-        _headerLabel.Text = "Select an item in the library tree.";
-    }
-
-    private void FlushEditorsToModel()
-    {
-        if (_suspendBinding || _tree.SelectedNode?.Tag is null) return;
-
-        switch (_tree.SelectedNode.Tag)
-        {
-            case RuleExpressionDocument rule:
-                rule.Name = _nameTextBox.Text;
-                rule.Description = _descriptionTextBox.Text;
-                rule.IsActive = _activeCheckBox.Checked;
-                rule.Priority = (int)_priorityNumeric.Value;
-                rule.Tags = ParseTags(_tagsTextBox.Text);
-                rule.Expression = _expressionTextBox.Text;
-                rule.ResultCode = NullIfEmpty(_resultCodeTextBox.Text);
-                rule.ResultMessage = NullIfEmpty(_resultMessageTextBox.Text);
-                rule.Severity = _severityComboBox.SelectedItem?.ToString();
-                rule.OptionalValue = NullIfEmpty(_optionalValueTextBox.Text);
-                _tree.SelectedNode.Text = rule.Name;
-                break;
-
-            case RuleContextDocument context:
-                context.Name = _contextNameTextBox.Text;
-                context.Description = _contextDescriptionTextBox.Text;
-                _tree.SelectedNode.Text = context.Name;
-                break;
-
-            case RuleCategoryDocument category:
-                category.Name = _categoryNameTextBox.Text;
-                category.Description = _categoryDescriptionTextBox.Text;
-                _tree.SelectedNode.Text = category.Name;
-                break;
-
-            case RuleLibraryDocument library:
-                library.Name = _libraryNameTextBox.Text;
-                library.Description = _libraryDescriptionTextBox.Text;
-                _tree.SelectedNode.Text = library.Name;
-                UpdateWindowTitle();
-                break;
-        }
-    }
-
-    private static List<string> ParseTags(string raw) =>
-        [.. raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
-
-    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Validation & error list
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void ValidateLibrary()
     {
-        FlushEditorsToModel();
-        _intellisense.Invalidate();
+        FlushSelectionToModel();
         List<ValidationIssue> issues = _validator.Validate(_library);
-        RenderErrorList(issues);
-
+        PopulateIssues(issues);
         int errors = issues.Count(i => string.Equals(i.Severity, "Error", StringComparison.OrdinalIgnoreCase));
         int warnings = issues.Count(i => string.Equals(i.Severity, "Warning", StringComparison.OrdinalIgnoreCase));
-        UpdateStatus(issues.Count == 0 ? "Validation succeeded. No issues found." : $"Validation completed with {issues.Count} issue(s).");
-        _countsLabel.Text = $"{errors} error(s) · {warnings} warning(s)";
+        _validationStatusLabel.Text = issues.Count == 0 ? "✓ Validation passed" : $"✓ Validation completed with {errors} error(s), {warnings} warning(s)";
+        _readyStatusLabel.Text = "Ready";
     }
-
-    private void RenderErrorList(IReadOnlyList<ValidationIssue> issues)
-    {
-        _errorList.BeginUpdate();
-        _errorList.Items.Clear();
-
-        foreach (ValidationIssue issue in issues
-                     .OrderBy(i => SeverityOrder(i.Severity))
-                     .ThenBy(i => i.Context)
-                     .ThenBy(i => i.Rule))
-        {
-            var item = new ListViewItem(string.Empty)
-            {
-                ImageKey = issue.Severity,
-                UseItemStyleForSubItems = false,
-                Tag = issue
-            };
-            item.SubItems.Add(issue.Severity);
-            item.SubItems.Add(issue.Message);
-            item.SubItems.Add(issue.Context);
-            item.SubItems.Add(issue.Category);
-            item.SubItems.Add(issue.Rule);
-            item.SubItems.Add(issue.ExpressionId);
-
-            if (string.Equals(issue.Severity, "Error", StringComparison.OrdinalIgnoreCase))
-                item.SubItems[1].ForeColor = Color.Firebrick;
-            else if (string.Equals(issue.Severity, "Warning", StringComparison.OrdinalIgnoreCase))
-                item.SubItems[1].ForeColor = Color.DarkGoldenrod;
-            else
-                item.SubItems[1].ForeColor = Color.SteelBlue;
-
-            _errorList.Items.Add(item);
-        }
-
-        _errorList.EndUpdate();
-    }
-
-    private static int SeverityOrder(string severity) => severity?.ToLowerInvariant() switch
-    {
-        "error" => 0,
-        "warning" => 1,
-        _ => 2
-    };
-
-    private void NavigateToSelectedError()
-    {
-        if (_errorList.SelectedItems.Count == 0) return;
-        if (_errorList.SelectedItems[0].Tag is not ValidationIssue issue) return;
-        if (issue.RuleId is null) return;
-
-        SelectNodeForRule(issue.RuleId.Value);
-        _editorTabs.SelectedTab = _expressionTab!;
-        _expressionTextBox.Focus();
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Test runner
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void TestRules()
     {
-        FlushEditorsToModel();
-        RuleContextDocument? context = FindSelectedContext();
+        FlushSelectionToModel();
+        RuleContextDocument? context = GetSelectedContext() ?? _library.Contexts.FirstOrDefault();
         if (context is null)
         {
-            MessageBox.Show(this, "Select a context or a rule under a context to run tests.",
-                "Test Rules", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "Add or select a context before running tests.", "Run Tests", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
         Type? contextType = _typeDiscovery.ResolveContextType(context);
         if (contextType is null)
         {
-            MessageBox.Show(this,
-                $"The context type '{context.QualifiedTypeName}' could not be resolved. " +
-                "Ensure the source assembly is accessible.",
-                "Test Rules", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, $"The context type '{context.QualifiedTypeName}' could not be resolved. Re-load the source DLL.", "Run Tests", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
-        using var loader = new TestDataDialog(contextType);
-        if (loader.ShowDialog(this) != DialogResult.OK || loader.LoadedObject is null) return;
+        using var dialog = new TestDataDialog(contextType);
+        if (dialog.ShowDialog(this) != DialogResult.OK || dialog.LoadedObject is null) return;
 
         try
         {
-            RuleEvaluationResult result = _testService.Run(_library, context, loader.LoadedObject, includeDiagnostics: true);
-            using var dialog = new TestResultDialog(result);
-            dialog.ShowDialog(this);
-            UpdateStatus($"Test run: {result.Matches.Count} match(es), {result.Mismatches.Count} mismatch(es).");
+            RuleEvaluationResult result = _testService.Run(_library, context, dialog.LoadedObject, includeDiagnostics: true);
+            using var resultDialog = new TestResultDialog(result);
+            resultDialog.ShowDialog(this);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Test run failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, ex.Message, "Run Tests", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // IntelliSense
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void WireUpIntelliSense()
+    private void PopulateIssues(IReadOnlyList<ValidationIssue> issues)
     {
-        _intellisenseListBox.Click += (_, _) => AcceptIntelliSenseSelection();
-        _intellisenseListBox.KeyDown += (_, e) =>
+        _errorList.BeginUpdate();
+        try
         {
-            if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Tab)
+            _errorList.Items.Clear();
+            foreach (ValidationIssue issue in issues)
             {
-                AcceptIntelliSenseSelection();
-                e.SuppressKeyPress = true;
+                var item = new ListViewItem(issue.Severity) { ImageKey = issue.Severity, Tag = issue };
+                item.SubItems.Add(issue.Message);
+                item.SubItems.Add(issue.Context);
+                item.SubItems.Add(issue.Category);
+                item.SubItems.Add(issue.Rule);
+                item.SubItems.Add(string.IsNullOrWhiteSpace(issue.Rule) ? "-" : "1");
+                item.SubItems.Add("-");
+                _errorList.Items.Add(item);
             }
-            else if (e.KeyCode == Keys.Escape)
+        }
+        finally
+        {
+            _errorList.EndUpdate();
+        }
+    }
+
+    private void BindSelection()
+    {
+        _binding = true;
+        try
+        {
+            if (_ruleTree.SelectedNode?.Tag is RuleExpressionDocument rule)
             {
-                _intellisenseListBox.Visible = false;
+                _documentTabLabel.Text = "  " + rule.Name + "      ×";
+                _expressionTextBox.Text = rule.Expression;
+                _resultCodeTextBox.Text = rule.ResultCode ?? string.Empty;
+                _resultMessageTextBox.Text = rule.ResultMessage ?? string.Empty;
+                _severityComboBox.SelectedItem = string.IsNullOrWhiteSpace(rule.Severity) ? "Warning" : rule.Severity;
+                _optionalValueTextBox.Text = rule.OptionalValue ?? string.Empty;
+                _ruleNameTextBox.Text = rule.Name;
+                _ruleDescriptionTextBox.Text = rule.Description;
+                _ruleEnabledCheckBox.Checked = rule.IsActive;
+                _tagsTextBox.Text = string.Join(", ", rule.Tags);
+                _priorityNumeric.Value = Math.Clamp(rule.Priority, (int)_priorityNumeric.Minimum, (int)_priorityNumeric.Maximum);
+            }
+            else if (_ruleTree.SelectedNode?.Tag is RuleContextDocument context)
+            {
+                _documentTabLabel.Text = "  Context: " + context.Name + "      ×";
+                _expressionTextBox.Text = context.QualifiedTypeName;
+                _resultCodeTextBox.Clear();
+                _resultMessageTextBox.Clear();
+                _optionalValueTextBox.Clear();
+                _ruleNameTextBox.Text = context.Name;
+                _ruleDescriptionTextBox.Text = context.Description;
+                _ruleEnabledCheckBox.Checked = true;
+                _tagsTextBox.Clear();
+                _priorityNumeric.Value = 0;
+            }
+            else if (_ruleTree.SelectedNode?.Tag is RuleCategoryDocument category)
+            {
+                _documentTabLabel.Text = "  Category: " + category.Name + "      ×";
+                _expressionTextBox.Text = category.Description;
+                _resultCodeTextBox.Clear();
+                _resultMessageTextBox.Clear();
+                _optionalValueTextBox.Clear();
+                _ruleNameTextBox.Text = category.Name;
+                _ruleDescriptionTextBox.Text = category.Description;
+                _ruleEnabledCheckBox.Checked = true;
+                _tagsTextBox.Clear();
+                _priorityNumeric.Value = 0;
+            }
+            else if (_ruleTree.SelectedNode?.Tag is RuleLibraryDocument)
+            {
+                _documentTabLabel.Text = "  Library: " + _library.Name + "      ×";
+                _expressionTextBox.Text = _library.Description;
+                _resultCodeTextBox.Clear();
+                _resultMessageTextBox.Clear();
+                _optionalValueTextBox.Clear();
+                _ruleNameTextBox.Text = _library.Name;
+                _ruleDescriptionTextBox.Text = _library.Description;
+                _ruleEnabledCheckBox.Checked = true;
+                _tagsTextBox.Clear();
+                _priorityNumeric.Value = 0;
+            }
+
+            UpdateContextLabels();
+        }
+        finally
+        {
+            _binding = false;
+        }
+    }
+
+    private void FlushSelectionToModel()
+    {
+        if (_binding || _ruleTree.SelectedNode?.Tag is null) return;
+
+        switch (_ruleTree.SelectedNode.Tag)
+        {
+            case RuleExpressionDocument rule:
+                rule.Name = _ruleNameTextBox.Text.Trim();
+                rule.Description = _ruleDescriptionTextBox.Text;
+                rule.Expression = _expressionTextBox.Text;
+                rule.ResultCode = NullIfWhiteSpace(_resultCodeTextBox.Text);
+                rule.ResultMessage = NullIfWhiteSpace(_resultMessageTextBox.Text);
+                rule.Severity = _severityComboBox.SelectedItem?.ToString();
+                rule.OptionalValue = NullIfWhiteSpace(_optionalValueTextBox.Text);
+                rule.IsActive = _ruleEnabledCheckBox.Checked;
+                rule.Priority = (int)_priorityNumeric.Value;
+                rule.Tags = [.. _tagsTextBox.Text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
+                _ruleTree.SelectedNode.Text = rule.Name;
+                _documentTabLabel.Text = "  " + rule.Name + "      ×";
+                break;
+            case RuleContextDocument context:
+                context.Name = _ruleNameTextBox.Text.Trim();
+                context.Description = _ruleDescriptionTextBox.Text;
+                _ruleTree.SelectedNode.Text = GetContextNodeText(context);
+                break;
+            case RuleCategoryDocument category:
+                category.Name = _ruleNameTextBox.Text.Trim();
+                category.Description = _ruleDescriptionTextBox.Text;
+                _ruleTree.SelectedNode.Text = category.Name;
+                break;
+            case RuleLibraryDocument:
+                _library.Name = _ruleNameTextBox.Text.Trim();
+                _library.Description = _ruleDescriptionTextBox.Text;
+                _ruleTree.SelectedNode.Text = _library.Name;
+                break;
+        }
+
+        UpdateCountsAndStatus("Ready");
+    }
+
+    private void RefreshTree(Guid? selectRuleId = null)
+    {
+        _ruleTree.BeginUpdate();
+        try
+        {
+            _ruleTree.Nodes.Clear();
+            TreeNode root = _ruleTree.Nodes.Add(_library.Name);
+            root.Tag = _library;
+            root.ImageKey = root.SelectedImageKey = "library";
+
+            foreach (RuleContextDocument context in _library.Contexts)
+            {
+                TreeNode contextNode = root.Nodes.Add(GetContextNodeText(context));
+                contextNode.Tag = context;
+                contextNode.ImageKey = contextNode.SelectedImageKey = "context";
+
+                foreach (RuleCategoryDocument category in context.Categories)
+                {
+                    AddCategoryNode(contextNode, category, context, selectRuleId);
+                }
+
+                foreach (RuleExpressionDocument rule in context.Expressions.Where(r => !ContainsRule(context.Categories, r.Id)))
+                {
+                    TreeNode ruleNode = contextNode.Nodes.Add(rule.Name);
+                    ruleNode.Tag = rule;
+                    ruleNode.ImageKey = ruleNode.SelectedImageKey = "rule";
+                    if (rule.Id == selectRuleId) _ruleTree.SelectedNode = ruleNode;
+                }
+            }
+
+            root.ExpandAll();
+            if (_ruleTree.SelectedNode is null) _ruleTree.SelectedNode = root;
+        }
+        finally
+        {
+            _ruleTree.EndUpdate();
+        }
+
+        UpdateCountsAndStatus("Ready");
+        UpdateWindowTitle();
+    }
+
+    private void AddCategoryNode(TreeNode parent, RuleCategoryDocument category, RuleContextDocument context, Guid? selectRuleId)
+    {
+        TreeNode node = parent.Nodes.Add(category.Name);
+        node.Tag = category;
+        node.ImageKey = node.SelectedImageKey = "category";
+
+        foreach (Guid id in category.ExpressionIds)
+        {
+            RuleExpressionDocument? rule = context.Expressions.FirstOrDefault(e => e.Id == id);
+            if (rule is null) continue;
+            TreeNode ruleNode = node.Nodes.Add(rule.Name);
+            ruleNode.Tag = rule;
+            ruleNode.ImageKey = ruleNode.SelectedImageKey = "rule";
+            if (rule.Id == selectRuleId) _ruleTree.SelectedNode = ruleNode;
+        }
+
+        foreach (RuleCategoryDocument child in category.Categories)
+        {
+            AddCategoryNode(node, child, context, selectRuleId);
+        }
+    }
+
+    private void NavigateToSelectedIssue()
+    {
+        if (_errorList.SelectedItems.Count == 0 || _errorList.SelectedItems[0].Tag is not ValidationIssue issue || issue.RuleId is null) return;
+        SelectRuleNode(issue.RuleId.Value);
+    }
+
+    private void SelectRuleNode(Guid id)
+    {
+        foreach (TreeNode node in Flatten(_ruleTree.Nodes))
+        {
+            if (node.Tag is RuleExpressionDocument rule && rule.Id == id)
+            {
+                _ruleTree.SelectedNode = node;
+                node.EnsureVisible();
                 _expressionTextBox.Focus();
-                e.SuppressKeyPress = true;
+                return;
             }
-        };
-
-        _expressionTextBox.TextChanged += (_, _) =>
-        {
-            if (_suspendBinding) return;
-            MarkDirty();
-            UpdateIntelliSense();
-        };
-
-        _expressionTextBox.LostFocus += (_, _) =>
-        {
-            // Only hide if focus didn't move to the intellisense list itself.
-            if (!_intellisenseListBox.Focused) _intellisenseListBox.Visible = false;
-        };
-    }
-
-    private void OnExpressionKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (!_intellisenseListBox.Visible) return;
-
-        if (e.KeyCode == Keys.Down)
-        {
-            _intellisenseListBox.Focus();
-            if (_intellisenseListBox.Items.Count > 0) _intellisenseListBox.SelectedIndex = 0;
-            e.SuppressKeyPress = true;
-        }
-        else if (e.KeyCode == Keys.Escape)
-        {
-            _intellisenseListBox.Visible = false;
-            e.SuppressKeyPress = true;
         }
     }
 
-    private void UpdateIntelliSense()
+    private IEnumerable<TreeNode> Flatten(TreeNodeCollection nodes)
     {
-        RuleContextDocument? context = FindSelectedContext();
-        if (context is null)
+        foreach (TreeNode node in nodes)
         {
-            _intellisenseListBox.Visible = false;
+            yield return node;
+            foreach (TreeNode child in Flatten(node.Nodes)) yield return child;
+        }
+    }
+
+    private void ShowIntelliSense()
+    {
+        RuleContextDocument? context = GetSelectedContext();
+        if (context is null) return;
+
+        string prefix = GetCurrentToken(_expressionTextBox.Text, _expressionTextBox.SelectionStart);
+        if (prefix.Length < 1)
+        {
+            _intelliSenseListBox.Visible = false;
             return;
         }
 
-        string prefix = ExtractCurrentToken();
-        if (prefix.Length < 2)
-        {
-            _intellisenseListBox.Visible = false;
-            return;
-        }
-
-        IReadOnlyList<string> suggestions = _intellisense.GetSuggestions(context, prefix);
+        IReadOnlyList<string> suggestions = _intelliSense.GetSuggestions(context, prefix);
         if (suggestions.Count == 0)
         {
-            _intellisenseListBox.Visible = false;
+            _intelliSenseListBox.Visible = false;
             return;
         }
 
-        _intellisenseListBox.BeginUpdate();
-        _intellisenseListBox.Items.Clear();
-        foreach (string suggestion in suggestions) _intellisenseListBox.Items.Add(suggestion);
-        _intellisenseListBox.EndUpdate();
-
-        PositionIntelliSense();
-        _intellisenseListBox.Visible = true;
-        _intellisenseListBox.BringToFront();
+        _intelliSenseListBox.BeginUpdate();
+        _intelliSenseListBox.Items.Clear();
+        foreach (string suggestion in suggestions) _intelliSenseListBox.Items.Add(suggestion);
+        _intelliSenseListBox.SelectedIndex = 0;
+        _intelliSenseListBox.EndUpdate();
+        _intelliSenseListBox.Location = new Point(70, 36);
+        _intelliSenseListBox.BringToFront();
+        _intelliSenseListBox.Visible = true;
     }
 
-    private string ExtractCurrentToken()
+    private void InsertIntelliSenseSelection()
     {
-        int caret = _expressionTextBox.SelectionStart;
-        string text = _expressionTextBox.Text;
-        int start = caret;
-        while (start > 0)
+        if (!_intelliSenseListBox.Visible || _intelliSenseListBox.SelectedItem is not string suggestion) return;
+        int start = _expressionTextBox.SelectionStart;
+        string token = GetCurrentToken(_expressionTextBox.Text, start);
+        int replaceStart = Math.Max(0, start - token.Length);
+        _expressionTextBox.Text = _expressionTextBox.Text.Remove(replaceStart, token.Length).Insert(replaceStart, suggestion);
+        _expressionTextBox.SelectionStart = replaceStart + suggestion.Length;
+        _intelliSenseListBox.Visible = false;
+    }
+
+    private void InsertSelectedSuggestion(ComboBox comboBox)
+    {
+        if (comboBox.SelectedItem is null || comboBox.SelectedIndex == 0) return;
+        string insert = comboBox.SelectedItem.ToString() switch
         {
-            char c = text[start - 1];
-            if (!(char.IsLetterOrDigit(c) || c == '.' || c == '_')) break;
-            start--;
-        }
-        return text[start..caret];
-    }
-
-    private void PositionIntelliSense()
-    {
-        int caret = _expressionTextBox.SelectionStart;
-        Point caretClient = _expressionTextBox.GetPositionFromCharIndex(caret);
-        Point caretScreen = _expressionTextBox.PointToScreen(caretClient);
-        Point listParent = _expressionTextBox.Parent!.PointToClient(caretScreen);
-        listParent.Offset(0, 18);
-        _intellisenseListBox.Location = listParent;
-    }
-
-    private void AcceptIntelliSenseSelection()
-    {
-        if (_intellisenseListBox.SelectedItem is not string selection) return;
-
-        string prefix = ExtractCurrentToken();
-        int caret = _expressionTextBox.SelectionStart;
-        int start = caret - prefix.Length;
-
-        _expressionTextBox.Text = _expressionTextBox.Text.Remove(start, prefix.Length).Insert(start, selection);
-        _expressionTextBox.SelectionStart = start + selection.Length;
-        _expressionTextBox.SelectionLength = 0;
-
-        _intellisenseListBox.Visible = false;
-        _expressionTextBox.Focus();
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Field-change wiring (dirty tracking)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void WireUpFieldEvents()
-    {
-        foreach (Control tb in new Control[]
-                 {
-                     _nameTextBox, _descriptionTextBox, _tagsTextBox,
-                     _resultCodeTextBox, _resultMessageTextBox, _optionalValueTextBox,
-                     _contextNameTextBox, _contextDescriptionTextBox,
-                     _categoryNameTextBox, _categoryDescriptionTextBox,
-                     _libraryNameTextBox, _libraryDescriptionTextBox
-                 })
+            "Operator" => " > ",
+            "Keyword" => " and ",
+            _ => string.Empty
+        };
+        if (!string.IsNullOrEmpty(insert))
         {
-            tb.TextChanged += (_, _) => { if (!_suspendBinding) MarkDirty(); };
+            int pos = _expressionTextBox.SelectionStart;
+            _expressionTextBox.Text = _expressionTextBox.Text.Insert(pos, insert);
+            _expressionTextBox.SelectionStart = pos + insert.Length;
         }
-
-        _activeCheckBox.CheckedChanged += (_, _) => { if (!_suspendBinding) MarkDirty(); };
-        _priorityNumeric.ValueChanged += (_, _) => { if (!_suspendBinding) MarkDirty(); };
-        _severityComboBox.SelectedIndexChanged += (_, _) => { if (!_suspendBinding) MarkDirty(); };
+        comboBox.SelectedIndex = 0;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private RuleContextDocument? FindSelectedContext()
+    private static string GetCurrentToken(string text, int cursor)
     {
-        TreeNode? node = _tree.SelectedNode;
+        int i = Math.Min(cursor, text.Length) - 1;
+        while (i >= 0)
+        {
+            char c = text[i];
+            if (char.IsWhiteSpace(c) || c is '(' or ')' or '>' or '<' or '=' or '!' or ',' or '"') break;
+            i--;
+        }
+        return text[(i + 1)..Math.Min(cursor, text.Length)];
+    }
+
+    private void UpdateContextLabels()
+    {
+        RuleContextDocument? context = GetSelectedContext();
+        if (context is null)
+        {
+            _contextNameLabel.Text = "Context Name:";
+            _contextTypeLabel.Text = "Context Type:";
+            return;
+        }
+        _contextNameLabel.Text = "Context Name:    " + context.Name;
+        _contextTypeLabel.Text = "Context Type:    " + context.QualifiedTypeName;
+    }
+
+    private void UpdateCountsAndStatus(string status)
+    {
+        int contextCount = _library.Contexts.Count;
+        int ruleCount = _library.Contexts.Sum(c => c.Expressions.Count);
+        _libraryCountLabel.Text = $"{contextCount} context(s)      {ruleCount} rule(s)";
+        _libraryStatusLabel.Text = "Library: " + _library.Name;
+        _readyStatusLabel.Text = status;
+    }
+
+    private void UpdateWindowTitle()
+    {
+        Text = (_dirty ? "*" : string.Empty) + "NAIware Rule Editor" + (_currentFile is null ? string.Empty : $" - {Path.GetFileName(_currentFile)}");
+    }
+
+    private void ShowTreeMenu(Point location)
+    {
+        var menu = new ContextMenuStrip();
+        menu.Items.Add("Add Category", null, (_, _) => AddCategory());
+        menu.Items.Add("Add Subcategory", null, (_, _) => AddSubcategory());
+        menu.Items.Add("Add Rule", null, (_, _) => AddRule());
+        menu.Items.Add("Duplicate Rule", null, (_, _) => DuplicateRule());
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Delete", null, (_, _) => DeleteSelected());
+        menu.Show(_ruleTree, location);
+    }
+
+    private RuleContextDocument? GetSelectedContext()
+    {
+        TreeNode? node = _ruleTree.SelectedNode;
         while (node is not null)
         {
             if (node.Tag is RuleContextDocument context) return context;
             node = node.Parent;
         }
+        return _library.Contexts.FirstOrDefault();
+    }
+
+    private RuleCategoryDocument? GetSelectedCategory()
+    {
+        TreeNode? node = _ruleTree.SelectedNode;
+        while (node is not null)
+        {
+            if (node.Tag is RuleCategoryDocument category) return category;
+            node = node.Parent;
+        }
         return null;
     }
 
-    private void MarkDirty()
-    {
-        if (_dirty) return;
-        _dirty = true;
-        UpdateWindowTitle();
-    }
+    private RuleExpressionDocument? GetSelectedRule() => _ruleTree.SelectedNode?.Tag as RuleExpressionDocument;
 
-    private void UpdateWindowTitle()
+    private bool ConfirmDiscardChanges()
     {
-        string file = _currentFile is null ? "(untitled)" : Path.GetFileName(_currentFile);
-        string marker = _dirty ? " *" : string.Empty;
-        Text = $"NAIware Rule Editor — {file}{marker}";
-    }
-
-    private void UpdateStatus(string message) => _statusLabel.Text = message;
-
-    private static ToolStripButton ToolbarButton(string text, string tooltip, EventHandler click)
-    {
-        var button = new ToolStripButton(text)
+        if (!_dirty) return true;
+        DialogResult result = MessageBox.Show(this, "The current library has unsaved changes. Save before continuing?", "Unsaved Changes", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+        return result switch
         {
-            DisplayStyle = ToolStripItemDisplayStyle.Text,
-            ToolTipText = tooltip,
-            Margin = new Padding(3, 2, 3, 2),
-            Padding = new Padding(4)
+            DialogResult.Yes => SaveLibrary(),
+            DialogResult.No => true,
+            _ => false
+        };
+    }
+
+    private void ShowAbout() => MessageBox.Show(this,
+        "NAIware Rule Editor\n\nDeveloper-focused WinForms editor for NAIware rule libraries.",
+        "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+    private void CreateMockupSampleLibrary()
+    {
+        _library = new RuleLibraryDocument { Name = "LoanEligibilityRules", Description = "Sample loan eligibility rule library." };
+        var loan = new RuleContextDocument { Name = "LoanApplication", QualifiedTypeName = "Mortgage.Models.LoanApplication" };
+        var coBorrower = new RuleContextDocument { Name = "CoBorrower", QualifiedTypeName = "Mortgage.Models.CoBorrower" };
+        var property = new RuleContextDocument { Name = "Property", QualifiedTypeName = "Mortgage.Models.Property" };
+
+        AddCategoryWithRules(loan, "01 - Borrower",
+            ("01 - Age Rule", "Loan.LoanCalculation.YoungestNonBorrowerSpouseAge < 18\r\nand Loan.Amount > 50000", "AGE-001", "Applicant's youngest non-borrower spouse is under 18 and loan amount exceeds $50,000."),
+            ("02 - Citizenship Rule", "Loan.Borrower.IsCitizen = true", "CIT-001", "Borrower citizenship requirement met."),
+            ("03 - Credit Score Rule", "Loan.Borrower.CreditScore >= 620", "CREDIT-001", "Credit score meets minimum threshold."));
+        AddCategoryWithRules(loan, "02 - Loan",
+            ("01 - Loan Amount Rule", "Loan.DeletedProperty > 1000", "AMT-001", "Loan amount is valid."),
+            ("02 - Loan Purpose Rule", "Loan.Purpose = \"Purchase\"", "PURPOSE-001", "Loan purpose is supported."));
+        AddCategoryWithRules(loan, "03 - Property",
+            ("01 - Property Type Rule", "UnknownMethod(Loan.Property.Type)", "PROP-001", "Property type is supported."),
+            ("02 - Property Value Rule", "Loan.Property.Value > 100000", "VALUE-001", "Property value is acceptable."));
+        AddCategoryWithRules(loan, "04 - Debt",
+            ("01 - Debt To Income Rule", "Loan.DebtToIncomeRatio < 45", "DTI-001", "Debt ratio is acceptable."));
+
+        loan.Expressions.Add(new RuleExpressionDocument
+        {
+            Name = "03 - Invalid Rule",
+            Expression = "Loan.Amount > \"ABC\"",
+            Severity = "Error",
+            ResultCode = "BAD-001",
+            ResultMessage = "Invalid sample."
+        });
+        loan.Expressions.Add(new RuleExpressionDocument
+        {
+            Name = "02 - Unmapped Rule",
+            Expression = "Loan.Amount > 1000",
+            Severity = "Warning"
+        });
+
+        _library.Contexts.Add(loan);
+        _library.Contexts.Add(coBorrower);
+        _library.Contexts.Add(property);
+    }
+
+    private static void AddCategoryWithRules(RuleContextDocument context, string categoryName, params (string Name, string Expression, string Code, string Message)[] rules)
+    {
+        var category = new RuleCategoryDocument { Name = categoryName };
+        foreach ((string name, string expression, string code, string message) in rules)
+        {
+            var rule = new RuleExpressionDocument
+            {
+                Name = name,
+                Expression = expression,
+                ResultCode = code,
+                ResultMessage = message,
+                Severity = name.Contains("Age", StringComparison.OrdinalIgnoreCase) ? "Error" : "Warning",
+                Priority = 10,
+                Tags = ["age", "loan", "eligibility"]
+            };
+            context.Expressions.Add(rule);
+            category.ExpressionIds.Add(rule.Id);
+        }
+        context.Categories.Add(category);
+    }
+
+    private static string GetContextNodeText(RuleContextDocument context) => string.IsNullOrWhiteSpace(context.QualifiedTypeName)
+        ? context.Name
+        : $"{context.Name}  ({context.QualifiedTypeName})";
+
+    private static bool ContainsRule(IEnumerable<RuleCategoryDocument> categories, Guid id) =>
+        categories.Any(c => c.ExpressionIds.Contains(id) || ContainsRule(c.Categories, id));
+
+    private static void RemoveRuleReferences(IEnumerable<RuleCategoryDocument> categories, Guid id)
+    {
+        foreach (RuleCategoryDocument category in categories)
+        {
+            category.ExpressionIds.Remove(id);
+            RemoveRuleReferences(category.Categories, id);
+        }
+    }
+
+    private static bool RemoveCategory(List<RuleCategoryDocument> categories, RuleCategoryDocument target)
+    {
+        if (categories.Remove(target)) return true;
+        foreach (RuleCategoryDocument category in categories)
+        {
+            if (RemoveCategory(category.Categories, target)) return true;
+        }
+        return false;
+    }
+
+    private static string SafeFileName(string value)
+    {
+        foreach (char c in Path.GetInvalidFileNameChars()) value = value.Replace(c, '_');
+        return value;
+    }
+
+    private static string? NullIfWhiteSpace(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static string NextNumberedName(IEnumerable<string> existing, string baseName)
+    {
+        var set = existing.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!set.Contains(baseName)) return baseName;
+        int i = 2;
+        while (set.Contains($"{baseName} {i}")) i++;
+        return $"{baseName} {i}";
+    }
+
+    private static ToolStripMenuItem MenuItem(string text, Keys shortcut, EventHandler click)
+    {
+        var item = new ToolStripMenuItem(text) { ShortcutKeys = shortcut };
+        item.Click += click;
+        return item;
+    }
+
+    private static ToolStripButton ToolButton(string text, string toolTip, Image image, EventHandler click)
+    {
+        var button = new ToolStripButton(text.Replace("\\n", Environment.NewLine), image)
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageAboveText,
+            ToolTipText = toolTip,
+            AutoSize = false,
+            Width = 82,
+            Height = 92,
+            TextAlign = ContentAlignment.BottomCenter,
+            ImageAlign = ContentAlignment.TopCenter
         };
         button.Click += click;
         return button;
     }
 
-    private static ToolStripMenuItem MenuItem(string text, Keys shortcut, EventHandler click)
+    private enum IconKind { Document, Folder, Disk, DiskPlus, Database, Cube, FolderPlus, FolderBranch, FolderMinus, Sort, DocumentPlus, Copy, Trash, Up, Down, Play, Gear, ClipboardCheck }
+
+    private void BuildImages()
     {
-        var item = new ToolStripMenuItem(text);
-        if (shortcut != Keys.None) item.ShortcutKeys = shortcut;
-        item.Click += click;
-        return item;
+        _treeImages.Images.Add("library", MakeIcon(IconKind.Cube, Color.SteelBlue, 16));
+        _treeImages.Images.Add("context", MakeIcon(IconKind.Database, Color.RoyalBlue, 16));
+        _treeImages.Images.Add("category", MakeIcon(IconKind.Folder, Color.DarkGoldenrod, 16));
+        _treeImages.Images.Add("rule", MakeIcon(IconKind.Document, Color.SteelBlue, 16));
+
+        _issueImages.Images.Add("Error", SeverityIcon("!", Color.FromArgb(210, 55, 48)));
+        _issueImages.Images.Add("Warning", SeverityIcon("!", Color.Goldenrod));
+        _issueImages.Images.Add("Info", SeverityIcon("i", Color.RoyalBlue));
     }
 
-    private void ShowAbout()
+    private static Image SeverityIcon(string glyph, Color color)
     {
-        MessageBox.Show(this,
-            "NAIware Rule Editor\n\n" +
-            "A developer-focused Windows Forms editor for authoring, validating, and testing " +
-            "rule libraries for the NAIware deterministic rules engine.\n\n" +
-            ".NET 10 · Windows Forms",
-            "About NAIware Rule Editor",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Information);
+        var bmp = new Bitmap(16, 16);
+        using Graphics g = Graphics.FromImage(bmp);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        using var b = new SolidBrush(color);
+        g.FillEllipse(b, 1, 1, 14, 14);
+        using var tb = new SolidBrush(Color.White);
+        using var f = new Font("Segoe UI", 8, FontStyle.Bold);
+        SizeF s = g.MeasureString(glyph, f);
+        g.DrawString(glyph, f, tb, (16 - s.Width) / 2, (16 - s.Height) / 2 - 1);
+        return bmp;
     }
 
-    private void OnFormClosing(object? sender, CancelEventArgs e)
+    private static Image MakeIcon(IconKind kind, Color color, int size = 32)
     {
-        if (!ConfirmDiscardChanges()) e.Cancel = true;
+        var bmp = new Bitmap(size, size);
+        using Graphics g = Graphics.FromImage(bmp);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        using var pen = new Pen(color, Math.Max(1.5f, size / 18f));
+        using var brush = new SolidBrush(Color.FromArgb(30, color));
+        float s = size;
+
+        switch (kind)
+        {
+            case IconKind.Document:
+            case IconKind.DocumentPlus:
+                g.FillRectangle(brush, s * .25f, s * .12f, s * .48f, s * .72f);
+                g.DrawRectangle(pen, s * .25f, s * .12f, s * .48f, s * .72f);
+                if (kind == IconKind.DocumentPlus) DrawPlus(g, color, s * .68f, s * .72f, s * .18f);
+                break;
+            case IconKind.Folder:
+            case IconKind.FolderPlus:
+            case IconKind.FolderBranch:
+            case IconKind.FolderMinus:
+                g.FillRectangle(brush, s * .12f, s * .35f, s * .76f, s * .42f);
+                g.DrawRectangle(pen, s * .12f, s * .35f, s * .76f, s * .42f);
+                g.DrawLine(pen, s * .16f, s * .35f, s * .36f, s * .22f);
+                g.DrawLine(pen, s * .36f, s * .22f, s * .54f, s * .35f);
+                if (kind == IconKind.FolderPlus) DrawPlus(g, color, s * .78f, s * .68f, s * .16f);
+                if (kind == IconKind.FolderMinus) g.DrawLine(pen, s * .68f, s * .68f, s * .86f, s * .68f);
+                if (kind == IconKind.FolderBranch) g.DrawArc(pen, s * .62f, s * .55f, s * .22f, s * .22f, 0, 270);
+                break;
+            case IconKind.Disk:
+            case IconKind.DiskPlus:
+                g.FillRectangle(brush, s * .18f, s * .16f, s * .64f, s * .64f);
+                g.DrawRectangle(pen, s * .18f, s * .16f, s * .64f, s * .64f);
+                g.DrawRectangle(pen, s * .32f, s * .18f, s * .32f, s * .2f);
+                if (kind == IconKind.DiskPlus) DrawPlus(g, color, s * .76f, s * .76f, s * .16f);
+                break;
+            case IconKind.Database:
+                g.DrawEllipse(pen, s * .22f, s * .16f, s * .56f, s * .2f);
+                g.DrawRectangle(pen, s * .22f, s * .26f, s * .56f, s * .5f);
+                g.DrawArc(pen, s * .22f, s * .66f, s * .56f, s * .2f, 0, 180);
+                break;
+            case IconKind.Cube:
+                PointF[] top = [new(s*.5f,s*.12f), new(s*.78f,s*.28f), new(s*.5f,s*.44f), new(s*.22f,s*.28f)];
+                g.DrawPolygon(pen, top); g.DrawLine(pen, s*.22f,s*.28f,s*.22f,s*.62f); g.DrawLine(pen, s*.78f,s*.28f,s*.78f,s*.62f); g.DrawLine(pen, s*.5f,s*.44f,s*.5f,s*.82f); g.DrawLine(pen, s*.22f,s*.62f,s*.5f,s*.82f); g.DrawLine(pen, s*.78f,s*.62f,s*.5f,s*.82f);
+                break;
+            case IconKind.Copy:
+                g.DrawRectangle(pen, s*.20f,s*.28f,s*.42f,s*.52f); g.DrawRectangle(pen, s*.36f,s*.14f,s*.42f,s*.52f);
+                break;
+            case IconKind.Trash:
+                g.DrawRectangle(pen, s*.28f,s*.32f,s*.44f,s*.48f); g.DrawLine(pen,s*.22f,s*.28f,s*.78f,s*.28f); g.DrawLine(pen,s*.40f,s*.18f,s*.60f,s*.18f);
+                break;
+            case IconKind.Sort:
+                g.DrawLine(pen,s*.36f,s*.18f,s*.36f,s*.78f); g.DrawLine(pen,s*.25f,s*.30f,s*.36f,s*.18f); g.DrawLine(pen,s*.47f,s*.30f,s*.36f,s*.18f); g.DrawLine(pen,s*.64f,s*.18f,s*.64f,s*.78f); g.DrawLine(pen,s*.53f,s*.66f,s*.64f,s*.78f); g.DrawLine(pen,s*.75f,s*.66f,s*.64f,s*.78f);
+                break;
+            case IconKind.Up:
+                g.DrawLine(pen,s*.50f,s*.18f,s*.50f,s*.78f); g.DrawLine(pen,s*.32f,s*.36f,s*.50f,s*.18f); g.DrawLine(pen,s*.68f,s*.36f,s*.50f,s*.18f); break;
+            case IconKind.Down:
+                g.DrawLine(pen,s*.50f,s*.18f,s*.50f,s*.78f); g.DrawLine(pen,s*.32f,s*.60f,s*.50f,s*.78f); g.DrawLine(pen,s*.68f,s*.60f,s*.50f,s*.78f); break;
+            case IconKind.Play:
+                g.DrawPolygon(pen, [new PointF(s*.32f,s*.18f), new PointF(s*.32f,s*.82f), new PointF(s*.78f,s*.50f)]); break;
+            case IconKind.Gear:
+                g.DrawEllipse(pen,s*.24f,s*.24f,s*.52f,s*.52f); g.DrawEllipse(pen,s*.42f,s*.42f,s*.16f,s*.16f); break;
+            case IconKind.ClipboardCheck:
+                g.DrawRectangle(pen,s*.24f,s*.18f,s*.52f,s*.66f); g.DrawLine(pen,s*.36f,s*.56f,s*.46f,s*.68f); g.DrawLine(pen,s*.46f,s*.68f,s*.68f,s*.42f); break;
+        }
+
+        return bmp;
     }
 
-    private void CreateSampleLibrary()
+    private static void DrawPlus(Graphics g, Color color, float x, float y, float len)
     {
-        _library = new RuleLibraryDocument
-        {
-            Name = "Sample Mortgage Library",
-            Description = "Demonstration rule library shipped with the editor."
-        };
-
-        var context = new RuleContextDocument
-        {
-            Name = "LoanApplication",
-            QualifiedTypeName = "Mortgage.Models.LoanApplication",
-            Description = "Mortgage loan application context (sample — resolve an actual DLL to enable validation)."
-        };
-
-        var category = new RuleCategoryDocument
-        {
-            Name = "Eligibility",
-            Description = "Rules that determine loan eligibility."
-        };
-
-        var rule = new RuleExpressionDocument
-        {
-            Name = "MinimumLoanAmount",
-            Description = "Ensures the loan amount meets the minimum threshold.",
-            Expression = "LoanApplication.Amount > 1000",
-            ResultCode = "AMT-001",
-            ResultMessage = "Loan amount must be greater than 1000.",
-            Severity = "Error",
-            Priority = 100,
-            Tags = ["eligibility", "amount"]
-        };
-
-        context.Expressions.Add(rule);
-        category.ExpressionIds.Add(rule.Id);
-        context.Categories.Add(category);
-        _library.Contexts.Add(context);
+        using var pen = new Pen(color, 2.2f);
+        g.DrawLine(pen, x - len / 2, y, x + len / 2, y);
+        g.DrawLine(pen, x, y - len / 2, x, y + len / 2);
     }
 }
