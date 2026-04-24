@@ -1,4 +1,4 @@
-namespace NAIware.Rules.Catalog;
+namespace NAIware.Rules.Models;
 
 /// <summary>
 /// The top-level catalog container for rule contexts and their associated definitions.

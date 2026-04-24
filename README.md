@@ -61,7 +61,7 @@ The core decisioning library providing three processing engines and a catalog-dr
 
 #### Catalog & Processing Model
 
-The catalog layer (`NAIware.Rules.Catalog`) provides a design-time domain model for defining rules declaratively, while the processing layer (`NAIware.Rules.Processing`) evaluates them at runtime:
+The models layer (`NAIware.Rules.Models`) provides a design-time domain model for defining rules declaratively, while the processing layer (`NAIware.Rules.Processing`) evaluates them at runtime:
 
 - **Rules Library** — Top-level catalog container holding rule contexts.
 - **Rule Context** — Domain classifier (e.g., `LoanApplication`) with a `QualifiedTypeName` that enables automatic resolution from the input object's type.
@@ -324,7 +324,7 @@ The `RuleProcessor` provides a high-level API that eliminates manual engine setu
 #### 1. Define the Catalog
 
 ```csharp
-using NAIware.Rules.Catalog;
+using NAIware.Rules.Models;
 
 var library = new RulesLibrary("MortgageRules", "Mortgage processing rules");
 

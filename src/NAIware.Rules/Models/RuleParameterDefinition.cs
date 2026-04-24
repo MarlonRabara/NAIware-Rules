@@ -1,4 +1,4 @@
-namespace NAIware.Rules.Catalog;
+namespace NAIware.Rules.Models;
 
 /// <summary>
 /// Defines a parameter that can be resolved from an input object within a <see cref="RuleContext"/>.

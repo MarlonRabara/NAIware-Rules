@@ -1,10 +1,10 @@
-using NAIware.Rules.Catalog;
+using NAIware.Rules.Models;
 
 namespace NAIware.RuleEditor;
 
 /// <summary>
 /// Maps between the UI <see cref="RuleLibraryDocument"/> DTO and the engine domain model
-/// in <see cref="NAIware.Rules.Catalog"/>. The UI DTO is the persistence shape; the domain
+/// in <see cref="NAIware.Rules.Models"/>. The UI DTO is the persistence shape; the domain
 /// model is what the engine and rule processor consume at runtime.
 /// </summary>
 public static class CatalogMapper
@@ -67,11 +67,12 @@ public static class CatalogMapper
         RuleCategoryDocument categoryDoc,
         IReadOnlyDictionary<Guid, RuleExpression> expressionById)
     {
-        // The current domain model does not expose parent/child categories;
-        // nested subcategories are flattened with a dotted name for traceability.
-        string effectiveName = parent is null ? categoryDoc.Name : $"{parent.Name}.{categoryDoc.Name}";
-
-        RuleCategory category = context.AddCategory(effectiveName, categoryDoc.Description);
+        // Top-level categories are owned by the context; nested categories are
+        // attached to their parent via RuleCategory.AddSubcategory so the
+        // engine hierarchy mirrors the UI tree exactly.
+        RuleCategory category = parent is null
+            ? context.AddCategory(categoryDoc.Name, categoryDoc.Description)
+            : parent.AddSubcategory(categoryDoc.Name, categoryDoc.Description);
 
         foreach (Guid expressionId in categoryDoc.ExpressionIds)
         {

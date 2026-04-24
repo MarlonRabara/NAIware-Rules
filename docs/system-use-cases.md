@@ -2,15 +2,15 @@
 
 ## Document Purpose
 
-This document defines the **system use cases** for the enhanced rules engine library. It is intentionally focused on **system behavior, runtime flow, entity responsibilities, and technical interactions** rather than business-facing scenarios. The goal is to provide implementation guidance for extending the existing rules framework with richer catalog entities, expression-level versioning, configurable rule groupings, result definitions, optional mismatch diagnostics, and a simplified rule processor.
+This document defines the **system use cases** for the enhanced rules engine library. It is intentionally focused on **system behavior, runtime flow, entity responsibilities, and technical interactions** rather than business-facing scenarios. The goal is to provide implementation guidance for extending the existing rules framework with richer rule library entities, expression-level versioning, configurable rule groupings, result definitions, optional mismatch diagnostics, and a simplified rule processor.
 
 ## Scope
 
 The system described here extends an existing rules engine library with the following high-level capabilities:
 
-- A rules catalog model centered around **Rules Library**, **Rule Context**, **Rule Category / Grouping**, **Rule Expression**, **Rule Parameter**, and **Rule Result Definition**.
+- A rules library model centered around **Rules Library**, **Rule Context**, **Rule Category / Grouping**, **Rule Expression**, **Rule Parameter**, and **Rule Result Definition**.
 - **Library-level versioning** as the primary versioning strategy. The entire Rules Library is the versioned unit; individual expressions, categories, parameters, and result definitions are mutable leaves within a library version.
-- A runtime model that separates catalog/design-time concerns from execution/runtime concerns.
+- A runtime model that separates library/design-time concerns from execution/runtime concerns.
 - A simplified **Rule Processor** API that accepts:
   - an input object
   - a rule grouping/category reference
@@ -35,7 +35,7 @@ The enhanced design should follow these principles:
    The Rules Library is the primary versioned entity. Changes to any contained expression, category, parameter, or result definition constitute a new Rules Library version. This keeps versioning coherent and reproducible without per-expression version coordination.
 
 5. **Separation of design-time and runtime models**  
-   Catalog/configuration entities are distinct from runtime execution entities.
+   Library/configuration entities are distinct from runtime execution entities.
 
 6. **Simple consumer API**  
    Callers should only need to provide the input object and the grouping/category to process.
@@ -65,7 +65,7 @@ A service or component that extracts parameter values from the input object usin
 ## 1.5 Expression Evaluator
 A service or component that evaluates a Rule Expression against the extracted parameter set.
 
-## 1.6 Catalog / Repository Layer
+## 1.6 Library / Repository Layer
 The mechanism responsible for retrieving contexts, categories/groupings, expressions, parameters, versions, and result definitions.
 
 ## 1.7 Diagnostic Generator
@@ -75,10 +75,10 @@ An optional component that constructs mismatch diagnostics when diagnostic mode 
 
 # 2. Core Entity Model (High Level)
 
-## 2.1 Design-Time / Catalog Entities
+## 2.1 Design-Time / Library Entities
 
 ### Rules Library
-Top-level catalog/container for rule-related definitions.
+Top-level container for rule-related definitions.
 
 ### Rule Context
 Represents the domain/classifier/type against which rules are evaluated.
@@ -157,23 +157,23 @@ An optional runtime diagnostic artifact describing why a Rule Expression did not
 ## SUC-01: Register and Maintain Rules Library Structure
 
 ### Goal
-Allow the system to define and maintain the top-level rules catalog structure.
+Allow the system to define and maintain the top-level rules library structure.
 
 ### Primary Actor
 System administrator, developer, or internal configuration service.
 
 ### Preconditions
 - The rules engine framework is available.
-- The persistence/catalog layer is available if the model is persisted.
+- The persistence/library layer is available if the model is persisted.
 
 ### Trigger
-A new rules catalog structure is created or an existing one is updated.
+A new rules library structure is created or an existing one is updated.
 
 ### Main Flow
 1. The system creates or loads a Rules Library.
 2. The system associates one or more Rule Contexts with the Rules Library.
 3. The system persists or registers the Rules Library and its contexts.
-4. The system makes the catalog available for future rule authoring and runtime evaluation.
+4. The system makes the library available for future rule authoring and runtime evaluation.
 
 ### Postconditions
 - A valid Rules Library structure exists.
@@ -291,7 +291,7 @@ A new parameter is required for rule processing.
 ## SUC-06: Version a Rules Library
 
 ### Goal
-Allow the system to create and manage revisions of a Rules Library using library-level versioning. The entire catalog (contexts, categories, expressions, parameters, result definitions) is snapshotted as a single coherent unit.
+Allow the system to create and manage revisions of a Rules Library using library-level versioning. The entire library (contexts, categories, expressions, parameters, result definitions) is snapshotted as a single coherent unit.
 
 ### Primary Actor
 Developer, authoring tool, or version management service.
@@ -317,7 +317,7 @@ One or more changes to the library's contained expressions, categories, paramete
 ### Postconditions
 - A new Rules Library Version exists.
 - All prior library versions remain available as immutable snapshots for audit and replay.
-- The catalog's contents (contexts, categories, expressions, parameters, result definitions) are versioned together as a coherent unit.
+- The library's contents (contexts, categories, expressions, parameters, result definitions) are versioned together as a coherent unit.
 
 ---
 
@@ -575,7 +575,7 @@ A new library revision is published or a historical evaluation must be reconstru
 ### Postconditions
 - Rules Library history is preserved as a coherent series of immutable snapshots.
 - Specific library versions can be identified and replayed for audit, compliance, or regression analysis.
-- Because the entire catalog is versioned as a unit, historical reproducibility does not require cross-entity version resolution.
+- Because the entire library is versioned as a unit, historical reproducibility does not require cross-entity version resolution.
 
 ---
 
@@ -619,7 +619,7 @@ The model should support future additions such as:
 
 ## 6.2 Maintainability
 The implementation should clearly separate:
-- catalog/configuration entities
+- library/configuration entities
 - runtime/execution entities
 - orchestration services
 - evaluation services
@@ -637,12 +637,12 @@ Library-level versioning should support historical traceability and future repro
 
 # 7. Summary
 
-The enhanced rules engine should support a catalog-driven model in which:
+The enhanced rules engine should support a library-driven model in which:
 
 - a **Rules Library** contains one or more **Rule Contexts**
 - each **Rule Context** owns its **Rule Categories / Groupings**, **Rule Expressions**, and **Rule Parameters**
 - **Rule Expressions** are reusable across multiple groupings within the same context
-- the **Rules Library** is the primary versioned artifact — the entire catalog is snapshotted as a coherent unit
+- the **Rules Library** is the primary versioned artifact — the entire library is snapshotted as a coherent unit
 - successful matches return configured **Rule Result Definitions**
 - mismatches may optionally return **diagnostic explanations**
 - a simplified **Rule Processor** accepts an object and a grouping/category, infers context automatically, and returns aggregate evaluation results (stamped with the library version that produced them)

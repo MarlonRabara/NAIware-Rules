@@ -1,6 +1,6 @@
 <Solution>
   <Folder Name="/Docs/">
-    <File Path="docs/catalog-design.md" />
+    <File Path="docs/rule-model-design.md" />
     <File Path="docs/system-use-cases.md" />
     <File Path="docs/windows-ui.md" />
   </Folder>

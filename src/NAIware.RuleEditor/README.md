@@ -27,11 +27,11 @@ The project references `NAIware.Rules` via a direct `ProjectReference`:
 
 The editor consumes the engine's domain model directly:
 
-- `NAIware.Rules.Catalog.RulesLibrary`
-- `NAIware.Rules.Catalog.RuleContext`
-- `NAIware.Rules.Catalog.RuleCategory`
-- `NAIware.Rules.Catalog.RuleExpression`
-- `NAIware.Rules.Catalog.RuleResultDefinition`
+- `NAIware.Rules.Models.RulesLibrary`
+- `NAIware.Rules.Models.RuleContext`
+- `NAIware.Rules.Models.RuleCategory`
+- `NAIware.Rules.Models.RuleExpression`
+- `NAIware.Rules.Models.RuleResultDefinition`
 - `NAIware.Rules.Processing.RuleProcessor`
 - `NAIware.Rules.Runtime.RuleEvaluationRequest`
 - `NAIware.Rules.Runtime.RuleEvaluationResult`
@@ -54,7 +54,7 @@ test-run time.
 | `IntelliSenseService.cs` | Reflected property-path cache shared with validation; supplies auto-complete suggestions |
 | `RuleValidationService.cs` | Compiler-style validation (property paths, parentheses, type mismatch, result definition completeness) |
 | `RuleTestService.cs` | Maps UI DTOs → engine library, creates `RuleProcessor`, evaluates against a hydrated input |
-| `CatalogMapper.cs` | Maps `RuleLibraryDocument` ↔ `NAIware.Rules.Catalog.RulesLibrary` |
+| `CatalogMapper.cs` | Maps `RuleLibraryDocument` ↔ `NAIware.Rules.Models.RulesLibrary` |
 | `TestDataDialog.cs` | Prompts the user for a JSON/XML file and hydrates it into the selected context type |
 | `TestResultDialog.cs` | Shows matches, mismatches, and diagnostics from a `RuleEvaluationResult` |
 
@@ -105,10 +105,9 @@ The main window matches the mockup's structure:
   suggested today.
 - **Syntax highlighting and inline error underlines** are out of scope for the first
   version (called out as future enhancements in the spec).
-- **Subcategory flattening in the engine model.** The current engine
-  (`NAIware.Rules.Catalog.RuleCategory`) does not expose parent/child category
-  relationships. `CatalogMapper` flattens nested subcategories using dotted names
-  (e.g., `Eligibility.Age`) so runtime evaluation still respects the hierarchy.
+- **Subcategory hierarchy in the engine model.** Nested UI subcategories map onto real
+  engine subcategories via `RuleCategory.AddSubcategory`. Selecting a parent category
+  at runtime evaluates every descendant's active expressions.
 - **Library-level versioning UI.** The library document carries a `Version` field and a
   `SavedUtc` timestamp, but the editor does not yet expose a Draft → Publish lifecycle.
   Publishing is a follow-up once engine-side `Publish()` semantics land.

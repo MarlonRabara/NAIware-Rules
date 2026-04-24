@@ -1,4 +1,4 @@
-namespace NAIware.Rules.Catalog;
+namespace NAIware.Rules.Models;
 
 /// <summary>
 /// A reusable rule expression definition with versioning and result configuration.

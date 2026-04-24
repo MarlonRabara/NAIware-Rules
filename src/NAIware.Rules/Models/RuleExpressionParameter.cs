@@ -1,4 +1,4 @@
-namespace NAIware.Rules.Catalog;
+namespace NAIware.Rules.Models;
 
 /// <summary>
 /// Join entity representing the many-to-many relationship between

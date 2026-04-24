@@ -1,4 +1,4 @@
-namespace NAIware.Rules.Catalog;
+namespace NAIware.Rules.Models;
 
 /// <summary>
 /// Defines the result payload returned when a <see cref="RuleExpression"/> evaluates to true.

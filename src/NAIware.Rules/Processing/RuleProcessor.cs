@@ -1,4 +1,4 @@
-using NAIware.Rules.Catalog;
+using NAIware.Rules.Models;
 using NAIware.Rules.Runtime;
 
 namespace NAIware.Rules.Processing;
@@ -93,7 +93,9 @@ public class RuleProcessor : IRuleProcessor
                 $"Rule category '{categoryName}' not found in context '{context.Name}'.");
         }
 
-        return category.GetActiveExpressions();
+        // Include expressions from nested subcategories so a parent category
+        // selection evaluates the entire subtree.
+        return category.GetAllActiveExpressions();
     }
 
     private static RuleExpressionResult EvaluateExpression(

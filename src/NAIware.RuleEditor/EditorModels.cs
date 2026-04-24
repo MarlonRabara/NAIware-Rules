@@ -5,7 +5,7 @@ namespace NAIware.RuleEditor;
 
 /// <summary>
 /// UI-facing document model that represents a rule library on disk.
-/// Maps to and from <see cref="NAIware.Rules.Catalog.RulesLibrary"/> via <see cref="CatalogMapper"/>.
+/// Maps to and from <see cref="NAIware.Rules.Models.RulesLibrary"/> via <see cref="CatalogMapper"/>.
 /// </summary>
 public sealed class RuleLibraryDocument
 {

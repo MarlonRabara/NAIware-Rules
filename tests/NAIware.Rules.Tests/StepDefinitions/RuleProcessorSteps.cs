@@ -1,5 +1,5 @@
 using FluentAssertions;
-using NAIware.Rules.Catalog;
+using NAIware.Rules.Models;
 using NAIware.Rules.Processing;
 using NAIware.Rules.Runtime;
 using NAIware.Rules.Tests.Models;

@@ -1,4 +1,4 @@
-using NAIware.Rules.Catalog;
+using NAIware.Rules.Models;
 
 namespace NAIware.Rules.Runtime;
 

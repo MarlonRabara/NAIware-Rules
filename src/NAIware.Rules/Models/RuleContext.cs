@@ -1,4 +1,4 @@
-namespace NAIware.Rules.Catalog;
+namespace NAIware.Rules.Models;
 
 /// <summary>
 /// Represents the domain classifier against which rules are evaluated.
@@ -76,7 +76,41 @@ public class RuleContext
         return paramDef;
     }
 
-    /// <summary>Finds a category by name.</summary>
-    public RuleCategory? FindCategoryByName(string name) =>
-        _categories.Find(c => string.Equals(c.Name, name, StringComparison.Ordinal));
+    /// <summary>
+    /// Finds a category by name or dotted path.
+    /// <para>
+    /// First searches top-level categories by exact name match. If no top-level
+    /// category matches, the name is interpreted as a dotted path
+    /// (e.g., <c>"Eligibility.Age"</c>) and resolved through the hierarchy.
+    /// As a final fallback, descendant categories are matched by name.
+    /// </para>
+    /// </summary>
+    public RuleCategory? FindCategoryByName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+
+        RuleCategory? topLevel = _categories.Find(c => string.Equals(c.Name, name, StringComparison.Ordinal));
+        if (topLevel is not null) return topLevel;
+
+        if (name.Contains('.'))
+        {
+            string[] segments = name.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length > 0)
+            {
+                RuleCategory? root = _categories.Find(c => string.Equals(c.Name, segments[0], StringComparison.Ordinal));
+                if (root is not null)
+                {
+                    string remainder = string.Join('.', segments, 1, segments.Length - 1);
+                    return string.IsNullOrEmpty(remainder) ? root : root.FindByPath(remainder);
+                }
+            }
+        }
+
+        foreach (RuleCategory top in _categories)
+            foreach (RuleCategory descendant in top.EnumerateDescendants())
+                if (string.Equals(descendant.Name, name, StringComparison.Ordinal))
+                    return descendant;
+
+        return null;
+    }
 }

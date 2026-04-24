@@ -1,5 +1,5 @@
 using System.Text;
-using NAIware.Rules.Catalog;
+using NAIware.Rules.Models;
 using NAIware.Rules.Processing;
 using NAIware.Rules.Runtime;
 

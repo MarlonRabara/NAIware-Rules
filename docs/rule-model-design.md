@@ -1,11 +1,11 @@
-# NAIware Rules — Catalog & Runtime Extension Design
+# NAIware Rules — Models & Runtime Extension Design
 
 ## 1. Existing Framework Analysis
 
 ### Current Architecture Summary
 
 The existing rules engine is a **runtime-only, in-memory expression evaluator**. There is no
-persistent catalog, no versioning, and no structured result model. The key entities are:
+persistent model, no versioning, and no structured result model. The key entities are:
 
 | Existing Entity | Role | Key Traits |
 |---|---|---|
@@ -46,11 +46,11 @@ persistent catalog, no versioning, and no structured result model. The key entit
 
 ### Design Principles
 
-1. **Catalog entities are POCOs** — no dependency on the parsing engine. They define *what* to evaluate.
+1. **Library entities are POCOs** — no dependency on the parsing engine. They define *what* to evaluate.
 2. **Runtime entities are separate** — they carry evaluation state and results. They are produced by the processor.
-3. **The existing engine remains untouched** — `Rules.Engine`, `RuleTree`, `ExpressionNode<R>`, etc. continue to do parsing and evaluation. The new catalog/processor layer sits above them.
+3. **The existing engine remains untouched** — `Rules.Engine`, `RuleTree`, `ExpressionNode<R>`, etc. continue to do parsing and evaluation. The new library/processor layer sits above them.
 4. **Backward-compatible** — existing usage patterns (`engine.AddRule(...)`, `engine.Execute()`) continue to work.
-5. **Library-level versioning** — versioning is anchored at the `RulesLibrary`, not per-expression. The entire catalog (contexts, categories, expressions, parameters, result definitions) is snapshotted as a single coherent unit. This dramatically reduces system complexity and avoids the coordination problems of per-expression versions.
+5. **Library-level versioning** — versioning is anchored at the `RulesLibrary`, not per-expression. The entire library (contexts, categories, expressions, parameters, result definitions) is snapshotted as a single coherent unit. This dramatically reduces system complexity and avoids the coordination problems of per-expression versions.
 
 ### Versioning Strategy: Library-Level Snapshots
 
@@ -81,7 +81,7 @@ RulesLibrary  (versioned root)
 ### Namespace Layout
 
 ```
-NAIware.Rules.Catalog/         — Design-time domain model
+NAIware.Rules.Models/         — Design-time domain model
     RulesLibrary.cs            — Versioned root aggregate
     LibraryVersion.cs          — Immutable snapshot metadata
     RuleContext.cs
