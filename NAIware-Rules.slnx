@@ -2,6 +2,7 @@
   <Folder Name="/Docs/">
     <File Path="docs/catalog-design.md" />
     <File Path="docs/system-use-cases.md" />
+    <File Path="docs/windows-ui.md" />
   </Folder>
   <Folder Name="/Shared Libraries/">
     <Project Path="src/NAIware.Core/NAIware.Core.csproj" />
@@ -10,5 +11,8 @@
   <Folder Name="/Tests/">
     <Project Path="tests/NAIware.Core.Tests/NAIware.Core.Tests.csproj" />
     <Project Path="tests/NAIware.Rules.Tests/NAIware.Rules.Tests.csproj" />
+  </Folder>
+  <Folder Name="/User Interface/">
+    <Project Path="src/NAIware.RuleEditor/NAIware.RuleEditor.csproj" />
   </Folder>
 </Solution>
