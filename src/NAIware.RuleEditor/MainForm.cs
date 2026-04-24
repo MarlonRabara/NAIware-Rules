@@ -17,6 +17,7 @@ public sealed class MainForm : Form
     private readonly RuleValidationService _validator;
     private readonly RuleTestService _testService = new();
     private SplitContainer? _editorAndPropsSplit;
+    private Panel? _propertiesViewHost;
 
     private RuleLibraryDocument _library = new();
     private string? _currentFile;
@@ -76,6 +77,20 @@ public sealed class MainForm : Form
     private readonly ComboBox _severityComboBox = new() { Dock = DockStyle.Left, Width = 190, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox _optionalValueTextBox = new() { Dock = DockStyle.Fill };
 
+    private readonly Label _propertiesTitleLabel = new()
+    {
+        Text = "Rule Properties                                      ×",
+        Dock = DockStyle.Top,
+        Height = 32,
+        Font = new Font("Segoe UI Semibold", 10f),
+        Padding = new Padding(0, 6, 0, 0)
+    };
+
+    private readonly Panel _rulePropertiesView = new() { Dock = DockStyle.Fill };
+    private readonly Panel _libraryPropertiesView = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly Panel _contextPropertiesView = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly Panel _categoryPropertiesView = new() { Dock = DockStyle.Fill, Visible = false };
+
     private readonly TextBox _ruleNameTextBox = new() { Dock = DockStyle.Top };
     private readonly TextBox _ruleDescriptionTextBox = new() { Dock = DockStyle.Top, Multiline = true, Height = 52, ScrollBars = ScrollBars.Vertical };
     private readonly CheckBox _ruleEnabledCheckBox = new() { Dock = DockStyle.Top, Text = "Enabled", Height = 25 };
@@ -88,6 +103,20 @@ public sealed class MainForm : Form
     private readonly Label _modifiedOnLabel = new() { Dock = DockStyle.Top, Height = 24, Text = "Modified On:   5/13/2025 9:18 AM" };
     private readonly Label _contextNameLabel = new() { Dock = DockStyle.Top, Height = 24, Text = "Context Name:" };
     private readonly Label _contextTypeLabel = new() { Dock = DockStyle.Top, Height = 44, Text = "Context Type:" };
+
+    private readonly Label _libraryViewStatusLabel = new() { Dock = DockStyle.Top, Height = 28, Text = "Status:" };
+    private readonly Label _libraryViewSavedOnLabel = new() { Dock = DockStyle.Top, Height = 28, Text = "Saved On (UTC):" };
+    private readonly Label _libraryViewFileLabel = new() { Dock = DockStyle.Top, Height = 44, Text = "File:" };
+    private readonly Label _libraryViewSummaryLabel = new() { Dock = DockStyle.Top, Height = 28, Text = "Summary:" };
+
+    private readonly Label _contextDllPathLabel = new() { Dock = DockStyle.Top, Height = 56, Text = "DLL Path:" };
+    private readonly Label _contextClassLabel = new() { Dock = DockStyle.Top, Height = 56, Text = "Context Class:" };
+    private readonly Label _contextInstanceLabel = new() { Dock = DockStyle.Top, Height = 28, Text = "Instance Name:" };
+
+    private readonly Label _categoryNameLabel = new() { Dock = DockStyle.Top, Height = 28, Text = "Category Name:" };
+    private readonly Label _categoryParentLabel = new() { Dock = DockStyle.Top, Height = 28, Text = "Parent:" };
+    private readonly TextBox _categoryNameTextBox = new() { Dock = DockStyle.Top };
+    private readonly TextBox _categoryDescriptionTextBox = new() { Dock = DockStyle.Top, Multiline = true, Height = 72, ScrollBars = ScrollBars.Vertical };
 
     private readonly ListView _errorList = new()
     {
@@ -355,6 +384,15 @@ public sealed class MainForm : Form
         _editorAndPropsSplit.Panel2Collapsed = _ruleTree.SelectedNode?.Tag is not RuleExpressionDocument;
     }
 
+    private void ShowPropertiesView(string title, Control view)
+    {
+        _propertiesTitleLabel.Text = title;
+        _rulePropertiesView.Visible = ReferenceEquals(view, _rulePropertiesView);
+        _libraryPropertiesView.Visible = ReferenceEquals(view, _libraryPropertiesView);
+        _contextPropertiesView.Visible = ReferenceEquals(view, _contextPropertiesView);
+        _categoryPropertiesView.Visible = ReferenceEquals(view, _categoryPropertiesView);
+    }
+
     private Control BuildLibraryPanel()
     {
         var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8), BackColor = Color.White };
@@ -454,15 +492,24 @@ public sealed class MainForm : Form
     private Control BuildPropertiesPanel()
     {
         var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(14, 10, 14, 8), BackColor = Color.White };
-        var title = new Label
-        {
-            Text = "Rule Properties                                      ×",
-            Dock = DockStyle.Top,
-            Height = 32,
-            Font = new Font("Segoe UI Semibold", 10f),
-            Padding = new Padding(0, 6, 0, 0)
-        };
+        _propertiesViewHost = new Panel { Dock = DockStyle.Fill };
+        _rulePropertiesView.Controls.Add(BuildRulePropertiesView());
+        _libraryPropertiesView.Controls.Add(BuildLibraryPropertiesView());
+        _contextPropertiesView.Controls.Add(BuildContextPropertiesView());
+        _categoryPropertiesView.Controls.Add(BuildCategoryPropertiesView());
 
+        _propertiesViewHost.Controls.Add(_rulePropertiesView);
+        _propertiesViewHost.Controls.Add(_libraryPropertiesView);
+        _propertiesViewHost.Controls.Add(_contextPropertiesView);
+        _propertiesViewHost.Controls.Add(_categoryPropertiesView);
+
+        panel.Controls.Add(_propertiesViewHost);
+        panel.Controls.Add(_propertiesTitleLabel);
+        return panel;
+    }
+
+    private Control BuildRulePropertiesView()
+    {
         var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
         var content = new Panel { Dock = DockStyle.Top, Height = 520 };
 
@@ -486,9 +533,45 @@ public sealed class MainForm : Form
         content.Height = y + 20;
 
         scroll.Controls.Add(content);
-        panel.Controls.Add(scroll);
-        panel.Controls.Add(title);
+        return scroll;
+    }
+
+    private Control BuildLibraryPropertiesView()
+    {
+        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0) };
+        panel.Controls.Add(_libraryViewSummaryLabel);
+        panel.Controls.Add(_libraryViewFileLabel);
+        panel.Controls.Add(_libraryViewSavedOnLabel);
+        panel.Controls.Add(_libraryViewStatusLabel);
         return panel;
+    }
+
+    private Control BuildContextPropertiesView()
+    {
+        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0) };
+        panel.Controls.Add(_contextInstanceLabel);
+        panel.Controls.Add(_contextClassLabel);
+        panel.Controls.Add(_contextDllPathLabel);
+        return panel;
+    }
+
+    private Control BuildCategoryPropertiesView()
+    {
+        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+        var content = new Panel { Dock = DockStyle.Top, Height = 260 };
+
+        int y = 6;
+        AddSection(content, "▣  Category", ref y);
+        AddPropertyLabelAndControl(content, "Name:", _categoryNameTextBox, ref y, 26);
+        AddPropertyLabelAndControl(content, "Description:", _categoryDescriptionTextBox, ref y, 72);
+        y += 12;
+        AddSection(content, "▣  Hierarchy", ref y);
+        AddInfoLabel(content, _categoryParentLabel, ref y);
+        AddInfoLabel(content, _categoryNameLabel, ref y);
+        content.Height = y + 20;
+
+        scroll.Controls.Add(content);
+        return scroll;
     }
 
     private Control BuildErrorPanel()
@@ -583,7 +666,8 @@ public sealed class MainForm : Form
         foreach (Control control in new Control[]
         {
             _expressionTextBox, _resultCodeTextBox, _resultMessageTextBox, _optionalValueTextBox,
-            _ruleNameTextBox, _ruleDescriptionTextBox, _tagsTextBox
+            _ruleNameTextBox, _ruleDescriptionTextBox, _tagsTextBox,
+            _categoryNameTextBox, _categoryDescriptionTextBox
         })
         {
             if (control is TextBox textBox) textBox.TextChanged += (_, _) => OnEditorChanged();
@@ -696,10 +780,12 @@ public sealed class MainForm : Form
         try
         {
             FlushSelectionToModel();
+            _library.SavedUtc = DateTimeOffset.UtcNow;
             RuleLibrarySerializer.Save(path, _library);
             _currentFile = path;
             _dirty = false;
             UpdateCountsAndStatus($"Saved {Path.GetFileName(path)}.");
+            UpdateSelectionInfoPanel();
             UpdateWindowTitle();
             return true;
         }
@@ -942,6 +1028,8 @@ public sealed class MainForm : Form
                 _ruleEnabledCheckBox.Checked = true;
                 _tagsTextBox.Clear();
                 _priorityNumeric.Value = 0;
+                _categoryNameTextBox.Clear();
+                _categoryDescriptionTextBox.Clear();
             }
             else if (_ruleTree.SelectedNode?.Tag is RuleCategoryDocument category)
             {
@@ -955,6 +1043,8 @@ public sealed class MainForm : Form
                 _ruleEnabledCheckBox.Checked = true;
                 _tagsTextBox.Clear();
                 _priorityNumeric.Value = 0;
+                _categoryNameTextBox.Text = category.Name;
+                _categoryDescriptionTextBox.Text = category.Description;
             }
             else if (_ruleTree.SelectedNode?.Tag is RuleLibraryDocument)
             {
@@ -972,6 +1062,7 @@ public sealed class MainForm : Form
 
             UpdateContextLabels();
             UpdateEditorVisibility();
+            UpdateSelectionInfoPanel();
         }
         finally
         {
@@ -1005,9 +1096,10 @@ public sealed class MainForm : Form
                 _ruleTree.SelectedNode.Text = GetContextNodeText(context);
                 break;
             case RuleCategoryDocument category:
-                category.Name = _ruleNameTextBox.Text.Trim();
-                category.Description = _ruleDescriptionTextBox.Text;
+                category.Name = _categoryNameTextBox.Text.Trim();
+                category.Description = _categoryDescriptionTextBox.Text;
                 _ruleTree.SelectedNode.Text = category.Name;
+                _documentTabLabel.Text = "  Category: " + category.Name + "      ×";
                 break;
             case RuleLibraryDocument:
                 _library.Name = _ruleNameTextBox.Text.Trim();
@@ -1193,6 +1285,66 @@ public sealed class MainForm : Form
         }
         _contextNameLabel.Text = "Context Name:    " + context.Name;
         _contextTypeLabel.Text = "Context Type:    " + context.QualifiedTypeName;
+    }
+
+    private void UpdateSelectionInfoPanel()
+    {
+        object? selection = _ruleTree.SelectedNode?.Tag;
+
+        if (selection is RuleLibraryDocument)
+        {
+            ShowPropertiesView("Library View                                      ×", _libraryPropertiesView);
+            _libraryViewStatusLabel.Text = "Status:    " + (_dirty ? "Not saved" : "Saved");
+            _libraryViewSavedOnLabel.Text = "Saved On (UTC):    " + _library.SavedUtc.ToString("u");
+            _libraryViewFileLabel.Text = "File:    " + (string.IsNullOrWhiteSpace(_currentFile) ? "(not saved to disk)" : _currentFile);
+            _libraryViewSummaryLabel.Text = $"Summary:    v{_library.Version} | {_library.Contexts.Count} context(s) | {_library.Contexts.Sum(c => c.Expressions.Count)} rule(s)";
+            return;
+        }
+
+        if (selection is RuleContextDocument context)
+        {
+            ShowPropertiesView("Context View                                      ×", _contextPropertiesView);
+            _contextDllPathLabel.Text = "DLL Path:    " + (string.IsNullOrWhiteSpace(context.AssemblyPath) ? "(not loaded from DLL)" : context.AssemblyPath);
+            _contextClassLabel.Text = "Context Class:    " + (string.IsNullOrWhiteSpace(context.QualifiedTypeName) ? "(not set)" : context.QualifiedTypeName);
+            _contextInstanceLabel.Text = "Instance Name:    " + (string.IsNullOrWhiteSpace(context.Name) ? "(not set)" : context.Name);
+            return;
+        }
+
+        if (selection is RuleCategoryDocument category)
+        {
+            ShowPropertiesView("Category View                                      ×", _categoryPropertiesView);
+            _categoryNameLabel.Text = "Category Name:    " + category.Name;
+            _categoryParentLabel.Text = "Parent:    " + GetCategoryParentName(_ruleTree.SelectedNode);
+            return;
+        }
+
+        if (selection is RuleExpressionDocument rule)
+        {
+            ShowPropertiesView("Rule Properties                                      ×", _rulePropertiesView);
+            _createdByLabel.Text = "Rule Id:    " + rule.Id;
+            _createdOnLabel.Text = "Priority:    " + rule.Priority;
+            _modifiedByLabel.Text = "Enabled:    " + (rule.IsActive ? "Yes" : "No");
+            _modifiedOnLabel.Text = "Severity:    " + (string.IsNullOrWhiteSpace(rule.Severity) ? "(not set)" : rule.Severity);
+            return;
+        }
+
+        ShowPropertiesView("Properties                                      ×", _libraryPropertiesView);
+        _createdByLabel.Text = "Created By:";
+        _createdOnLabel.Text = "Created On:";
+        _modifiedByLabel.Text = "Modified By:";
+        _modifiedOnLabel.Text = "Modified On:";
+    }
+
+    private static string GetCategoryParentName(TreeNode? categoryNode)
+    {
+        if (categoryNode?.Parent is null) return "(none)";
+
+        return categoryNode.Parent.Tag switch
+        {
+            RuleCategoryDocument parentCategory => parentCategory.Name,
+            RuleContextDocument parentContext => parentContext.Name,
+            _ => categoryNode.Parent.Text
+        };
     }
 
     private void UpdateCountsAndStatus(string status)
