@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/Docs/">
+    <File Path="docs/catalog-design.md" />
+    <File Path="docs/system-use-cases.md" />
+  </Folder>
   <Folder Name="/Shared Libraries/">
     <Project Path="src/NAIware.Core/NAIware.Core.csproj" />
     <Project Path="src/NAIware.Rules/NAIware.Rules.csproj" />
