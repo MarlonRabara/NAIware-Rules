@@ -1,5 +1,7 @@
 # NAIware Rule Editor (Windows Forms)
 
+> **Terminology and versioning rule:** This project uses **Library** as the root term for a persisted set of rules. Do not use "catalog" for product/domain naming. Versioning belongs to the **RulesLibrary** as a whole. Individual rule expressions are not versioned and do not maintain expression-level revision history. A context owns categories, categories may contain deeply nested subcategories, and rule expressions are attached at category leaf nodes.
+
 A developer-focused Windows Forms application for authoring, validating, and testing
 rule libraries for the NAIware deterministic rules engine.
 
@@ -36,10 +38,7 @@ The editor consumes the engine's domain model directly:
 - `NAIware.Rules.Runtime.RuleEvaluationRequest`
 - `NAIware.Rules.Runtime.RuleEvaluationResult`
 
-These types are **not** duplicated in the UI project. The editor persists a small set of
-UI-facing `*Document` DTOs (see `EditorModels.cs`) so the on-disk JSON format remains
-stable as the engine evolves. `CatalogMapper` bridges the UI DTOs to the engine model at
-test-run time.
+These types are **not** duplicated in the UI project. The editor consumes `NAIware.Rules.Models` directly for the in-memory model and JSON persistence. `EditorModels.cs` now contains only editor support types such as validation issues and reflected type metadata. `RuleLibraryMapper` is retained only as a compatibility pass-through helper.
 
 ## File / Class Layout
 
@@ -47,14 +46,14 @@ test-run time.
 |---|---|
 | `Program.cs` | Application entry point |
 | `MainForm.cs` | Main editor window — menu, toolbar, tree, tabbed editor, error list, status bar |
-| `EditorModels.cs` | UI-facing DTOs (`RuleLibraryDocument`, `RuleContextDocument`, `RuleCategoryDocument`, `RuleExpressionDocument`, `ValidationIssue`, `ReflectedTypeInfo`) |
+| `EditorModels.cs` | Editor-only support types (`ValidationIssue`, `ReflectedTypeInfo`). Rule libraries, contexts, categories, and expressions come directly from `NAIware.Rules.Models`. |
 | `RuleLibrarySerializer.cs` | JSON load/save |
 | `AssemblyTypeDiscoveryService.cs` | Reflects public concrete types from a DLL; resolves context types |
 | `ContextTypePickerDialog.cs` | Filtered list modal for choosing a context type |
 | `IntelliSenseService.cs` | Reflected property-path cache shared with validation; supplies auto-complete suggestions |
 | `RuleValidationService.cs` | Compiler-style validation (property paths, parentheses, type mismatch, result definition completeness) |
-| `RuleTestService.cs` | Maps UI DTOs → engine library, creates `RuleProcessor`, evaluates against a hydrated input |
-| `CatalogMapper.cs` | Maps `RuleLibraryDocument` ↔ `NAIware.Rules.Models.RulesLibrary` |
+| `RuleTestService.cs` | Uses existing NAIware.Rules.Models directly, creates `RuleProcessor`, evaluates against a hydrated input |
+| `RuleLibraryMapper.cs` | Compatibility pass-through helper. The editor now uses `NAIware.Rules.Models.RulesLibrary` directly. |
 | `TestDataDialog.cs` | Prompts the user for a JSON/XML file and hydrates it into the selected context type |
 | `TestResultDialog.cs` | Shows matches, mismatches, and diagnostics from a `RuleEvaluationResult` |
 
@@ -101,14 +100,14 @@ The main window matches the mockup's structure:
 - **No plain-English translation** of rule expressions.
 - **No visual rule-builder.**
 - **Registered-method auto-complete.** The IntelliSense service is shaped to accept a
-  method catalog in a future revision; only property paths, keywords, and operators are
+  method library in a future revision; only property paths, keywords, and operators are
   suggested today.
 - **Syntax highlighting and inline error underlines** are out of scope for the first
   version (called out as future enhancements in the spec).
 - **Subcategory hierarchy in the engine model.** Nested UI subcategories map onto real
   engine subcategories via `RuleCategory.AddSubcategory`. Selecting a parent category
   at runtime evaluates every descendant's active expressions.
-- **Library-level versioning UI.** The library document carries a `Version` field and a
+- **Library-level versioning UI.** The library model carries a `Version` field and a
   `SavedUtc` timestamp, but the editor does not yet expose a Draft → Publish lifecycle.
   Publishing is a follow-up once engine-side `Publish()` semantics land.
 

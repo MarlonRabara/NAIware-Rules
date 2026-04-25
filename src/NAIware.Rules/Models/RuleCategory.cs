@@ -1,24 +1,21 @@
+using System.Text.Json.Serialization;
+
 namespace NAIware.Rules.Models;
 
 /// <summary>
 /// A grouping mechanism under a <see cref="RuleContext"/> that organizes
 /// <see cref="RuleExpression"/> instances into named execution sets.
-/// <para>
-/// Categories form a tree: a category may contain any number of nested
-/// <see cref="Subcategories"/> and tracks its <see cref="ParentCategory"/>
-/// (null when the category is attached directly to a <see cref="RuleContext"/>).
-/// </para>
-/// <para>
-/// A category has a many-to-many relationship with expressions via
-/// <see cref="RuleCategoryExpression"/>.
-/// </para>
+/// Categories can be nested to any practical depth; rule expressions live at category leaf nodes.
 /// </summary>
 public class RuleCategory
 {
-    private readonly Guid _identity;
-    private readonly string _name;
-    private readonly List<RuleCategoryExpression> _categoryExpressions = [];
-    private readonly List<RuleCategory> _subcategories = [];
+    /// <summary>Creates a new rule category.</summary>
+    public RuleCategory()
+    {
+        Identity = Guid.NewGuid();
+        Name = string.Empty;
+        Description = string.Empty;
+    }
 
     /// <summary>Creates a new rule category.</summary>
     public RuleCategory(string name, string description = "")
@@ -29,40 +26,44 @@ public class RuleCategory
     /// <summary>Creates a new rule category with an explicit identity.</summary>
     public RuleCategory(Guid identity, string name, string description = "")
     {
-        _identity = identity;
-        _name = name;
+        Identity = identity;
+        Name = name;
         Description = description;
     }
 
-    /// <summary>Gets the unique identity of the category.</summary>
-    public Guid Identity => _identity;
+    /// <summary>Gets or sets the unique identity of the category.</summary>
+    public Guid Identity { get; set; }
 
-    /// <summary>Gets the name of the category.</summary>
-    public string Name => _name;
+    /// <summary>Gets or sets the category name.</summary>
+    public string Name { get; set; }
 
-    /// <summary>Gets or sets the description of the category.</summary>
+    /// <summary>Gets or sets the category description.</summary>
     public string Description { get; set; }
 
-    /// <summary>
-    /// Gets the parent category, or null when this category is a top-level
-    /// category attached directly to a <see cref="RuleContext"/>.
-    /// </summary>
+    /// <summary>Gets the parent category, or null when this is a top-level category.</summary>
+    [JsonIgnore]
     public RuleCategory? ParentCategory { get; private set; }
 
-    /// <summary>Gets the nested subcategories of this category.</summary>
-    public IReadOnlyList<RuleCategory> Subcategories => _subcategories;
+    /// <summary>Gets or sets nested subcategories.</summary>
+    public List<RuleCategory> Categories { get; set; } = [];
 
-    /// <summary>Gets the join entities linking this category to its expressions.</summary>
-    public List<RuleCategoryExpression> CategoryExpressions => _categoryExpressions;
+    /// <summary>Gets nested subcategories.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<RuleCategory> Subcategories => Categories;
 
-    /// <summary>
-    /// Gets the dotted path from the root category to this category
-    /// (e.g., <c>"Eligibility.Age"</c>). For top-level categories this
-    /// equals <see cref="Name"/>.
-    /// </summary>
-    public string Path => ParentCategory is null ? _name : $"{ParentCategory.Path}.{_name}";
+    /// <summary>Gets or sets the join entities linking this category to its expressions.</summary>
+    [JsonIgnore]
+    public List<RuleCategoryExpression> CategoryExpressions { get; set; } = [];
+
+    /// <summary>Gets or sets expression ids used by the editor tree and persistence layer.</summary>
+    public List<Guid> ExpressionIds { get; set; } = [];
+
+    /// <summary>Gets the dotted path from the root category to this category.</summary>
+    [JsonIgnore]
+    public string Path => ParentCategory is null ? Name : $"{ParentCategory.Path}.{Name}";
 
     /// <summary>Gets the depth of this category in the hierarchy. Top-level categories return 0.</summary>
+    [JsonIgnore]
     public int Depth
     {
         get
@@ -78,30 +79,26 @@ public class RuleCategory
         }
     }
 
-    /// <summary>
-    /// Adds a rule expression to this category with the specified ordinal.
-    /// If no ordinal is provided, it is appended at the end.
-    /// </summary>
+    /// <summary>Adds a rule expression to this category.</summary>
     public RuleCategoryExpression AddExpression(RuleExpression expression, int? ordinal = null)
     {
         ArgumentNullException.ThrowIfNull(expression);
 
-        var join = new RuleCategoryExpression(
-            _identity,
-            expression.Identity,
-            ordinal ?? _categoryExpressions.Count,
-            expression);
+        if (!ExpressionIds.Contains(expression.Identity)) ExpressionIds.Add(expression.Identity);
 
-        _categoryExpressions.Add(join);
+        var existing = CategoryExpressions.FirstOrDefault(e => e.ExpressionIdentity == expression.Identity);
+        if (existing is not null)
+        {
+            existing.Expression = expression;
+            return existing;
+        }
+
+        var join = new RuleCategoryExpression(Identity, expression.Identity, ordinal ?? CategoryExpressions.Count, expression);
+        CategoryExpressions.Add(join);
         return join;
     }
 
-    /// <summary>
-    /// Creates a new subcategory owned by this category and returns it.
-    /// The returned category has its <see cref="ParentCategory"/> set to this instance.
-    /// </summary>
-    /// <param name="name">The subcategory name.</param>
-    /// <param name="description">Optional subcategory description.</param>
+    /// <summary>Creates a nested subcategory owned by this category.</summary>
     public RuleCategory AddSubcategory(string name, string description = "")
     {
         var child = new RuleCategory(name, description);
@@ -109,56 +106,30 @@ public class RuleCategory
         return child;
     }
 
-    /// <summary>
-    /// Attaches an existing category as a subcategory of this category.
-    /// Throws if the candidate already has a parent or would introduce a cycle.
-    /// </summary>
-    /// <param name="subcategory">The category to attach as a child.</param>
+    /// <summary>Attaches an existing category as a subcategory of this category.</summary>
     public void AttachSubcategory(RuleCategory subcategory)
     {
         ArgumentNullException.ThrowIfNull(subcategory);
-
-        if (subcategory == this)
-            throw new InvalidOperationException("A category cannot be a subcategory of itself.");
-
-        if (subcategory.ParentCategory is not null)
-            throw new InvalidOperationException(
-                $"Category '{subcategory.Name}' is already attached to '{subcategory.ParentCategory.Name}'. " +
-                "Detach it before re-attaching.");
-
-        if (IsDescendantOf(subcategory))
-            throw new InvalidOperationException(
-                $"Cannot attach '{subcategory.Name}' under '{Name}' because it would create a cycle.");
-
+        if (subcategory == this) throw new InvalidOperationException("A category cannot be a subcategory of itself.");
+        if (IsDescendantOf(subcategory)) throw new InvalidOperationException("The category move would create a cycle.");
         subcategory.ParentCategory = this;
-        _subcategories.Add(subcategory);
+        if (!Categories.Contains(subcategory)) Categories.Add(subcategory);
     }
 
-    /// <summary>
-    /// Detaches a subcategory from this category and clears its parent link.
-    /// Returns true when the subcategory was found and removed.
-    /// </summary>
+    /// <summary>Detaches a subcategory from this category.</summary>
     public bool DetachSubcategory(RuleCategory subcategory)
     {
         ArgumentNullException.ThrowIfNull(subcategory);
-
-        if (!_subcategories.Remove(subcategory)) return false;
+        if (!Categories.Remove(subcategory)) return false;
         subcategory.ParentCategory = null;
         return true;
     }
 
-    /// <summary>
-    /// Finds a direct subcategory by name (non-recursive).
-    /// Use <see cref="FindByPath"/> for dotted-path lookup.
-    /// </summary>
+    /// <summary>Finds a direct subcategory by name.</summary>
     public RuleCategory? FindSubcategoryByName(string name) =>
-        _subcategories.Find(c => string.Equals(c.Name, name, StringComparison.Ordinal));
+        Categories.Find(c => string.Equals(c.Name, name, StringComparison.Ordinal));
 
-    /// <summary>
-    /// Resolves a descendant category by dotted path relative to this category
-    /// (e.g., <c>"Age.Senior"</c>). Returns null if any segment is missing.
-    /// </summary>
-    /// <param name="path">A dotted path of category names.</param>
+    /// <summary>Resolves a descendant category by dotted path relative to this category.</summary>
     public RuleCategory? FindByPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return null;
@@ -174,44 +145,37 @@ public class RuleCategory
 
     /// <summary>Gets the ordered rule expressions attached directly to this category.</summary>
     public IEnumerable<RuleExpression> GetExpressions() =>
-        _categoryExpressions
+        CategoryExpressions
+            .Where(ce => ce.Expression is not null)
             .OrderBy(ce => ce.Ordinal)
-            .Select(ce => ce.Expression);
+            .Select(ce => ce.Expression!);
 
     /// <summary>Gets only the active rule expressions attached directly to this category.</summary>
-    public IEnumerable<RuleExpression> GetActiveExpressions() =>
-        GetExpressions().Where(e => e.IsActive);
+    public IEnumerable<RuleExpression> GetActiveExpressions() => GetExpressions().Where(e => e.IsActive);
 
-    /// <summary>
-    /// Gets every rule expression in this category and all nested subcategories,
-    /// deduplicated by <see cref="RuleExpression.Identity"/>.
-    /// </summary>
+    /// <summary>Gets every rule expression in this category and all nested subcategories.</summary>
     public IEnumerable<RuleExpression> GetAllExpressions()
     {
         var seen = new HashSet<Guid>();
         foreach (RuleExpression expression in EnumerateAll(this))
         {
-            if (seen.Add(expression.Identity))
-                yield return expression;
+            if (seen.Add(expression.Identity)) yield return expression;
         }
     }
 
-    /// <summary>
-    /// Gets every active rule expression in this category and all nested subcategories,
-    /// deduplicated by <see cref="RuleExpression.Identity"/>.
-    /// </summary>
-    public IEnumerable<RuleExpression> GetAllActiveExpressions() =>
-        GetAllExpressions().Where(e => e.IsActive);
+    /// <summary>Gets every active rule expression in this category and all nested subcategories.</summary>
+    public IEnumerable<RuleExpression> GetAllActiveExpressions() => GetAllExpressions().Where(e => e.IsActive);
 
-    /// <summary>
-    /// Enumerates this category followed by every descendant, depth-first.
-    /// </summary>
+    /// <summary>Enumerates this category followed by every descendant, depth-first.</summary>
     public IEnumerable<RuleCategory> EnumerateDescendants()
     {
         yield return this;
-        foreach (RuleCategory child in _subcategories)
+        foreach (RuleCategory child in Categories)
+        {
+            child.ParentCategory = this;
             foreach (RuleCategory descendant in child.EnumerateDescendants())
                 yield return descendant;
+        }
     }
 
     private bool IsDescendantOf(RuleCategory candidate)
@@ -226,7 +190,7 @@ public class RuleCategory
         foreach (RuleExpression expression in category.GetExpressions())
             yield return expression;
 
-        foreach (RuleCategory child in category._subcategories)
+        foreach (RuleCategory child in category.Categories)
             foreach (RuleExpression expression in EnumerateAll(child))
                 yield return expression;
     }

@@ -16,14 +16,14 @@ public sealed class RuleTestService
     /// <summary>
     /// Runs the rules in the library against the supplied input object.
     /// </summary>
-    /// <param name="library">The UI library document.</param>
-    /// <param name="contextDoc">The context document whose type matches the input object.</param>
+    /// <param name="library">The rule library model.</param>
+    /// <param name="contextDoc">The context model whose type matches the input object.</param>
     /// <param name="inputObject">The hydrated input to evaluate.</param>
     /// <param name="includeDiagnostics">Whether to include mismatch diagnostics in the result.</param>
     /// <returns>The evaluation result produced by <see cref="RuleProcessor"/>.</returns>
     public RuleEvaluationResult Run(
-        RuleLibraryDocument library,
-        RuleContextDocument contextDoc,
+        RulesLibrary library,
+        RuleContext contextDoc,
         object inputObject,
         bool includeDiagnostics = true)
     {
@@ -31,7 +31,8 @@ public sealed class RuleTestService
         ArgumentNullException.ThrowIfNull(contextDoc);
         ArgumentNullException.ThrowIfNull(inputObject);
 
-        RulesLibrary domainLibrary = CatalogMapper.ToDomain(library);
+        RulesLibrary domainLibrary = library;
+        RuleLibrarySerializer.RebuildCategoryExpressionLinks(domainLibrary);
 
         // Ensure the in-memory context matches the qualified type name of the hydrated input.
         // The hydrated object's runtime type is the authoritative resolver target.

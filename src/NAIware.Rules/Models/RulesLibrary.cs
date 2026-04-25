@@ -1,63 +1,80 @@
 namespace NAIware.Rules.Models;
 
 /// <summary>
-/// The top-level catalog container for rule contexts and their associated definitions.
+/// The top-level rule library container for contexts, categories, rule expressions, and library-level version metadata.
 /// </summary>
+/// <remarks>
+/// Versioning is intentionally scoped to the library. Individual rule expressions are not independently versioned;
+/// changing any rule, category, context, parameter, or result definition produces a new library version or snapshot.
+/// </remarks>
 public class RulesLibrary
 {
-    private readonly Guid _identity;
-    private readonly string _name;
-    private readonly List<RuleContext> _contexts = [];
+    /// <summary>Creates a new rules library.</summary>
+    public RulesLibrary()
+    {
+        Identity = Guid.NewGuid();
+        Name = "New Rule Library";
+        Description = string.Empty;
+        Version = 1;
+        CreatedUtc = DateTimeOffset.UtcNow;
+        SavedUtc = CreatedUtc;
+    }
 
     /// <summary>Creates a new rules library with the specified name.</summary>
     public RulesLibrary(string name)
-        : this(Guid.NewGuid(), name, string.Empty)
+        : this(name, string.Empty)
     {
     }
 
     /// <summary>Creates a new rules library with the specified name and description.</summary>
     public RulesLibrary(string name, string description)
-        : this(Guid.NewGuid(), name, description)
+        : this()
     {
+        Name = name;
+        Description = description;
     }
 
     /// <summary>Creates a new rules library with the specified identity, name, and description.</summary>
     public RulesLibrary(Guid identity, string name, string description)
+        : this(name, description)
     {
-        _identity = identity;
-        _name = name;
-        Description = description;
-        CreatedUtc = DateTimeOffset.UtcNow;
+        Identity = identity;
     }
 
-    /// <summary>Gets the unique identity of the library.</summary>
-    public Guid Identity => _identity;
+    /// <summary>Gets or sets the stable logical identity of the library.</summary>
+    public Guid Identity { get; set; }
 
-    /// <summary>Gets the name of the library.</summary>
-    public string Name => _name;
+    /// <summary>Gets or sets the library name.</summary>
+    public string Name { get; set; }
 
-    /// <summary>Gets or sets the description of the library.</summary>
+    /// <summary>Gets or sets the library description.</summary>
     public string Description { get; set; }
 
-    /// <summary>Gets the UTC timestamp when the library was created.</summary>
-    public DateTimeOffset CreatedUtc { get; }
+    /// <summary>Gets or sets the library-level version number.</summary>
+    public int Version { get; set; }
 
-    /// <summary>Gets the rule contexts in this library.</summary>
-    public List<RuleContext> Contexts => _contexts;
+    /// <summary>Gets or sets the UTC timestamp when the library was created.</summary>
+    public DateTimeOffset CreatedUtc { get; set; }
+
+    /// <summary>Gets or sets the UTC timestamp when the library was last saved.</summary>
+    public DateTimeOffset SavedUtc { get; set; }
+
+    /// <summary>Gets or sets the rule contexts in this library.</summary>
+    public List<RuleContext> Contexts { get; set; } = [];
 
     /// <summary>Adds a context to the library.</summary>
     public RuleContext AddContext(string name, string qualifiedTypeName, string description = "")
     {
         var context = new RuleContext(name, qualifiedTypeName, description);
-        _contexts.Add(context);
+        Contexts.Add(context);
         return context;
     }
 
     /// <summary>Finds a context by its qualified type name.</summary>
     public RuleContext? FindContextByTypeName(string qualifiedTypeName) =>
-        _contexts.Find(c => string.Equals(c.QualifiedTypeName, qualifiedTypeName, StringComparison.Ordinal));
+        Contexts.Find(c => string.Equals(c.QualifiedTypeName, qualifiedTypeName, StringComparison.Ordinal));
 
     /// <summary>Finds a context by name.</summary>
     public RuleContext? FindContextByName(string name) =>
-        _contexts.Find(c => string.Equals(c.Name, name, StringComparison.Ordinal));
+        Contexts.Find(c => string.Equals(c.Name, name, StringComparison.Ordinal));
 }

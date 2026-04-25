@@ -1,8 +1,10 @@
 # Rules Engine Enhancements - System Use Cases
 
+> **Terminology and versioning rule:** This project uses **Library** as the root term for a persisted set of rules. Do not use "catalog" for product/domain naming. Versioning belongs to the **RulesLibrary** as a whole. Individual rule expressions are not versioned and do not maintain expression-level revision history. A context owns categories, categories may contain deeply nested subcategories, and rule expressions are attached at category leaf nodes.
+
 ## Document Purpose
 
-This document defines the **system use cases** for the enhanced rules engine library. It is intentionally focused on **system behavior, runtime flow, entity responsibilities, and technical interactions** rather than business-facing scenarios. The goal is to provide implementation guidance for extending the existing rules framework with richer rule library entities, expression-level versioning, configurable rule groupings, result definitions, optional mismatch diagnostics, and a simplified rule processor.
+This document defines the **system use cases** for the enhanced rules engine library. It is intentionally focused on **system behavior, runtime flow, entity responsibilities, and technical interactions** rather than business-facing scenarios. The goal is to provide implementation guidance for extending the existing rules framework with richer rule library entities, library-level versioning, configurable rule groupings, result definitions, optional mismatch diagnostics, and a simplified rule processor.
 
 ## Scope
 
@@ -96,7 +98,7 @@ A context-owned parameter definition representing a resolvable/extractable value
 A configured payload returned when a Rule Expression evaluates true.
 
 ### Rules Library Version
-An immutable snapshot of a Rules Library at a specific version. Library-level versioning is the primary versioning model — the entire catalog (contexts, categories, expressions, parameters, and result definitions) is captured as one coherent, auditable unit.
+An immutable snapshot of a Rules Library at a specific version. Library-level versioning is the primary versioning model — the entire library (contexts, categories, expressions, parameters, and result definitions) is captured as one coherent, auditable unit.
 
 ## 2.2 Runtime / Execution Entities
 
@@ -613,7 +615,7 @@ Provide a minimal, consumer-friendly execution API.
 ## 6.1 Extensibility
 The model should support future additions such as:
 - richer result payloads
-- expression-level versioning as an advanced opt-in, if ever needed
+- additional library lifecycle states such as draft, published, archived
 - additional runtime tracing
 - alternate context resolution strategies
 
@@ -631,7 +633,7 @@ The framework should evolve the current rules engine naturally instead of forcin
 Mismatch diagnostics should be optional to avoid overhead in normal execution paths.
 
 ## 6.5 Reproducibility
-Library-level versioning should support historical traceability and future reproducibility needs. Runtime evaluation results should record the library version they were produced under so a historical request can be replayed against the exact same catalog snapshot.
+Library-level versioning should support historical traceability and future reproducibility needs. Runtime evaluation results should record the library version they were produced under so a historical request can be replayed against the exact same library snapshot.
 
 ---
 

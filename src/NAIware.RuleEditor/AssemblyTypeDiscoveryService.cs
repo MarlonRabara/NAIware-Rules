@@ -52,7 +52,7 @@ public sealed class AssemblyTypeDiscoveryService
     /// </summary>
     /// <param name="context">The UI context document.</param>
     /// <returns>The resolved <see cref="Type"/>, or null if the type cannot be located.</returns>
-    public Type? ResolveContextType(RuleContextDocument context)
+    public Type? ResolveContextType(RuleContext context)
     {
         if (!string.IsNullOrWhiteSpace(context.AssemblyPath) && File.Exists(context.AssemblyPath))
         {

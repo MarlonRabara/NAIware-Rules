@@ -34,13 +34,13 @@ public sealed class RuleValidationService
     /// </summary>
     /// <param name="library">The library document to validate.</param>
     /// <returns>A list of <see cref="ValidationIssue"/> records, empty when the library is clean.</returns>
-    public List<ValidationIssue> Validate(RuleLibraryDocument library)
+    public List<ValidationIssue> Validate(RulesLibrary library)
     {
         ArgumentNullException.ThrowIfNull(library);
 
         var issues = new List<ValidationIssue>();
 
-        foreach (RuleContextDocument context in library.Contexts)
+        foreach (RuleContext context in library.Contexts)
         {
             ContextMetadata? metadata = _intellisense.GetMetadata(context);
             if (metadata is null)
@@ -54,7 +54,7 @@ public sealed class RuleValidationService
                 continue;
             }
 
-            foreach (RuleExpressionDocument rule in context.Expressions)
+            foreach (RuleExpression rule in context.Expressions)
             {
                 string category = FindCategoryFor(context, rule.Id);
                 ValidateRule(context, category, rule, metadata, issues);
@@ -64,9 +64,9 @@ public sealed class RuleValidationService
         return issues;
     }
 
-    private static string FindCategoryFor(RuleContextDocument context, Guid expressionId)
+    private static string FindCategoryFor(RuleContext context, Guid expressionId)
     {
-        foreach (RuleCategoryDocument category in context.Categories)
+        foreach (RuleCategory category in context.Categories)
         {
             string? found = FindCategoryRecursive(category, expressionId, string.Empty);
             if (found is not null) return found;
@@ -74,13 +74,13 @@ public sealed class RuleValidationService
         return string.Empty;
     }
 
-    private static string? FindCategoryRecursive(RuleCategoryDocument category, Guid expressionId, string pathPrefix)
+    private static string? FindCategoryRecursive(RuleCategory category, Guid expressionId, string pathPrefix)
     {
         string fullName = string.IsNullOrEmpty(pathPrefix) ? category.Name : $"{pathPrefix}.{category.Name}";
 
         if (category.ExpressionIds.Contains(expressionId)) return fullName;
 
-        foreach (RuleCategoryDocument child in category.Categories)
+        foreach (RuleCategory child in category.Categories)
         {
             string? nested = FindCategoryRecursive(child, expressionId, fullName);
             if (nested is not null) return nested;
@@ -90,9 +90,9 @@ public sealed class RuleValidationService
     }
 
     private static void ValidateRule(
-        RuleContextDocument context,
+        RuleContext context,
         string category,
-        RuleExpressionDocument rule,
+        RuleExpression rule,
         ContextMetadata metadata,
         List<ValidationIssue> issues)
     {
@@ -122,9 +122,9 @@ public sealed class RuleValidationService
     }
 
     private static void ValidateParentheses(
-        RuleContextDocument context,
+        RuleContext context,
         string category,
-        RuleExpressionDocument rule,
+        RuleExpression rule,
         List<ValidationIssue> issues)
     {
         int balance = 0;
@@ -147,9 +147,9 @@ public sealed class RuleValidationService
     }
 
     private static void ValidateUnknownIdentifiers(
-        RuleContextDocument context,
+        RuleContext context,
         string category,
-        RuleExpressionDocument rule,
+        RuleExpression rule,
         ContextMetadata metadata,
         List<ValidationIssue> issues)
     {
@@ -177,9 +177,9 @@ public sealed class RuleValidationService
     }
 
     private static void ValidatePropertyPaths(
-        RuleContextDocument context,
+        RuleContext context,
         string category,
-        RuleExpressionDocument rule,
+        RuleExpression rule,
         ContextMetadata metadata,
         List<ValidationIssue> issues)
     {
@@ -202,9 +202,9 @@ public sealed class RuleValidationService
     }
 
     private static void ValidateSimpleComparisons(
-        RuleContextDocument context,
+        RuleContext context,
         string category,
-        RuleExpressionDocument rule,
+        RuleExpression rule,
         ContextMetadata metadata,
         List<ValidationIssue> issues)
     {
@@ -296,9 +296,9 @@ public sealed class RuleValidationService
     private static string FriendlyName(Type type) => (Nullable.GetUnderlyingType(type) ?? type).Name;
 
     private static ValidationIssue Error(
-        RuleContextDocument context,
+        RuleContext context,
         string category,
-        RuleExpressionDocument rule,
+        RuleExpression rule,
         string message) => new()
     {
         Severity = "Error",

@@ -28,7 +28,7 @@ public sealed class IntelliSenseService
     /// </summary>
     /// <param name="context">The UI context document.</param>
     /// <returns>The reflected metadata, or null when the context type cannot be resolved.</returns>
-    public ContextMetadata? GetMetadata(RuleContextDocument context)
+    public ContextMetadata? GetMetadata(RuleContext context)
     {
         if (string.IsNullOrWhiteSpace(context.QualifiedTypeName)) return null;
 
@@ -55,7 +55,7 @@ public sealed class IntelliSenseService
     /// <param name="context">The active context document.</param>
     /// <param name="prefix">The partial token the user has typed.</param>
     /// <returns>An ordered list of completion suggestions.</returns>
-    public IReadOnlyList<string> GetSuggestions(RuleContextDocument context, string prefix)
+    public IReadOnlyList<string> GetSuggestions(RuleContext context, string prefix)
     {
         if (string.IsNullOrEmpty(prefix)) return [];
 

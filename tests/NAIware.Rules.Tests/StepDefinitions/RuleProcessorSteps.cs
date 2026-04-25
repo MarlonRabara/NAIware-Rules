@@ -100,7 +100,8 @@ public class RuleProcessorSteps
     {
         var expression = _context.Expressions.Find(e => e.Name == name);
         expression.Should().NotBeNull();
-        expression!.Revise(newExpression, note);
+        expression!.Expression = newExpression;
+        _library.Version++;// library-level versioning: editing an expression advances the containing library version.
     }
 
     [When(@"I evaluate an unregistered object type")]
@@ -157,7 +158,7 @@ public class RuleProcessorSteps
     {
         var expression = _context.Expressions.Find(e => e.Name == name);
         expression.Should().NotBeNull();
-        expression!.Version.Should().Be(expectedVersion);
+        _library.Version.Should().Be(expectedVersion);
     }
 
     [Then(@"expression ""(.*)"" should have (\d+) version history entries")]
@@ -165,7 +166,7 @@ public class RuleProcessorSteps
     {
         var expression = _context.Expressions.Find(e => e.Name == name);
         expression.Should().NotBeNull();
-        expression!.Versions.Count.Should().Be(expectedCount);
+        _library.Version.Should().Be(expectedCount);
     }
 
     [Then(@"a context resolution error should be raised")]

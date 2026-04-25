@@ -4,10 +4,10 @@ using NAIware.Rules.Runtime;
 namespace NAIware.Rules.Processing;
 
 /// <summary>
-/// A high-level rule processor that evaluates catalog-defined rules against input objects.
+/// A high-level rule processor that evaluates library-defined rules against input objects.
 /// <para>
 /// The processor automatically resolves the <see cref="RuleContext"/> from the input object's type,
-/// extracts parameters via <see cref="ParameterFactory"/>, loads expressions from the catalog,
+/// extracts parameters via <see cref="ParameterFactory"/>, loads expressions from the library,
 /// evaluates them using the existing <see cref="Rules.Engine"/>, and maps the results to a
 /// structured <see cref="RuleEvaluationResult"/>.
 /// </para>
@@ -19,15 +19,22 @@ namespace NAIware.Rules.Processing;
 public class RuleProcessor : IRuleProcessor
 {
     private readonly IRuleContextResolver _resolver;
+    private readonly RulesLibrary? _library;
 
     /// <summary>
     /// Creates a rule processor with the specified context resolver.
     /// </summary>
     /// <param name="resolver">The resolver used to match input objects to rule contexts.</param>
     public RuleProcessor(IRuleContextResolver resolver)
+        : this(resolver, library: null)
+    {
+    }
+
+    private RuleProcessor(IRuleContextResolver resolver, RulesLibrary? library)
     {
         ArgumentNullException.ThrowIfNull(resolver);
         _resolver = resolver;
+        _library = library;
     }
 
     /// <summary>
@@ -36,7 +43,7 @@ public class RuleProcessor : IRuleProcessor
     /// </summary>
     /// <param name="library">The rules library containing context definitions.</param>
     public RuleProcessor(RulesLibrary library)
-        : this(new ReflectionRuleContextResolver(library))
+        : this(new ReflectionRuleContextResolver(library), library)
     {
     }
 
@@ -60,7 +67,7 @@ public class RuleProcessor : IRuleProcessor
         Parameters runtimeParams = extractedParams ?? new Parameters();
 
         // 4. Evaluate each expression individually and collect results
-        var result = new RuleEvaluationResult(context.Name, request.CategoryName);
+        var result = new RuleEvaluationResult(context.Name, request.CategoryName, _library?.Name, _library?.Version ?? 0);
 
         foreach (RuleExpression ruleExpression in expressions)
         {
@@ -116,7 +123,6 @@ public class RuleProcessor : IRuleProcessor
             return new RuleExpressionResult(
                 ruleExpression.Identity,
                 ruleExpression.Name,
-                ruleExpression.Version,
                 matched: true,
                 result: ruleExpression.ResultDefinition);
         }
@@ -140,7 +146,6 @@ public class RuleProcessor : IRuleProcessor
         return new RuleExpressionResult(
             ruleExpression.Identity,
             ruleExpression.Name,
-            ruleExpression.Version,
             matched: false,
             diagnostic: diagnostic);
     }

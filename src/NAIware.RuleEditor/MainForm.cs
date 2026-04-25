@@ -19,7 +19,7 @@ public sealed class MainForm : Form
     private SplitContainer? _editorAndPropsSplit;
     private Panel? _propertiesViewHost;
 
-    private RuleLibraryDocument _library = new();
+    private RulesLibrary _library = new();
     private string? _currentFile;
     private bool _dirty;
     private bool _binding;
@@ -381,7 +381,7 @@ public sealed class MainForm : Form
     private void UpdateEditorVisibility()
     {
         if (_editorAndPropsSplit is null) return;
-        _editorAndPropsSplit.Panel2Collapsed = _ruleTree.SelectedNode?.Tag is not RuleExpressionDocument;
+        _editorAndPropsSplit.Panel2Collapsed = _ruleTree.SelectedNode?.Tag is not RuleExpression;
     }
 
     private void ShowPropertiesView(string title, Control view)
@@ -725,7 +725,7 @@ public sealed class MainForm : Form
     private void NewLibrary()
     {
         if (!ConfirmDiscardChanges()) return;
-        _library = new RuleLibraryDocument { Name = "New Rule Library" };
+        _library = new RulesLibrary { Name = "New Rule Library" };
         _currentFile = null;
         _dirty = false;
         _errorList.Items.Clear();
@@ -808,7 +808,7 @@ public sealed class MainForm : Form
             if (picker.ShowDialog(this) != DialogResult.OK || picker.SelectedType is null) return;
 
             ReflectedTypeInfo selected = picker.SelectedType;
-            _library.Contexts.Add(new RuleContextDocument
+            _library.Contexts.Add(new RuleContext
             {
                 Name = selected.Type?.Name ?? selected.DisplayName,
                 QualifiedTypeName = selected.FullName,
@@ -828,32 +828,32 @@ public sealed class MainForm : Form
 
     private void AddCategory()
     {
-        RuleContextDocument? context = GetSelectedContext();
+        RuleContext? context = GetSelectedContext();
         if (context is null) return;
-        context.Categories.Add(new RuleCategoryDocument { Name = NextNumberedName(context.Categories.Select(c => c.Name), "New Category") });
+        context.Categories.Add(new RuleCategory { Name = NextNumberedName(context.Categories.Select(c => c.Name), "New Category") });
         _dirty = true;
         RefreshTree();
     }
 
     private void AddSubcategory()
     {
-        RuleCategoryDocument? category = GetSelectedCategory();
+        RuleCategory? category = GetSelectedCategory();
         if (category is null)
         {
             AddCategory();
             return;
         }
-        category.Categories.Add(new RuleCategoryDocument { Name = NextNumberedName(category.Categories.Select(c => c.Name), "New Subcategory") });
+        category.Categories.Add(new RuleCategory { Name = NextNumberedName(category.Categories.Select(c => c.Name), "New Subcategory") });
         _dirty = true;
         RefreshTree();
     }
 
     private void AddRule()
     {
-        RuleContextDocument? context = GetSelectedContext();
+        RuleContext? context = GetSelectedContext();
         if (context is null) return;
 
-        var rule = new RuleExpressionDocument
+        var rule = new RuleExpression
         {
             Name = NextNumberedName(context.Expressions.Select(e => e.Name), "New Rule"),
             Expression = "Loan.Amount > 1000",
@@ -865,7 +865,7 @@ public sealed class MainForm : Form
         };
         context.Expressions.Add(rule);
 
-        RuleCategoryDocument? category = GetSelectedCategory();
+        RuleCategory? category = GetSelectedCategory();
         category?.ExpressionIds.Add(rule.Id);
         _dirty = true;
         RefreshTree(rule.Id);
@@ -874,7 +874,7 @@ public sealed class MainForm : Form
     private void DuplicateRule()
     {
         if (GetSelectedRule() is not { } selected || GetSelectedContext() is not { } context) return;
-        var copy = new RuleExpressionDocument
+        var copy = new RuleExpression
         {
             Name = selected.Name + " Copy",
             Description = selected.Description,
@@ -899,16 +899,16 @@ public sealed class MainForm : Form
         if (MessageBox.Show(this, "Delete the selected item?", "Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
 
         object tag = _ruleTree.SelectedNode.Tag;
-        if (tag is RuleExpressionDocument rule && GetSelectedContext() is { } context)
+        if (tag is RuleExpression rule && GetSelectedContext() is { } context)
         {
             context.Expressions.Remove(rule);
             RemoveRuleReferences(context.Categories, rule.Id);
         }
-        else if (tag is RuleCategoryDocument category && GetSelectedContext() is { } selectedContext)
+        else if (tag is RuleCategory category && GetSelectedContext() is { } selectedContext)
         {
             RemoveCategory(selectedContext.Categories, category);
         }
-        else if (tag is RuleContextDocument contextDoc)
+        else if (tag is RuleContext contextDoc)
         {
             _library.Contexts.Remove(contextDoc);
         }
@@ -920,7 +920,7 @@ public sealed class MainForm : Form
     private void MoveSelected(int direction)
     {
         if (GetSelectedRule() is not { } rule || GetSelectedContext() is not { } context) return;
-        List<RuleExpressionDocument> list = context.Expressions;
+        List<RuleExpression> list = context.Expressions;
         int index = list.IndexOf(rule);
         int newIndex = index + direction;
         if (index < 0 || newIndex < 0 || newIndex >= list.Count) return;
@@ -944,7 +944,7 @@ public sealed class MainForm : Form
     private void TestRules()
     {
         FlushSelectionToModel();
-        RuleContextDocument? context = GetSelectedContext() ?? _library.Contexts.FirstOrDefault();
+        RuleContext? context = GetSelectedContext() ?? _library.Contexts.FirstOrDefault();
         if (context is null)
         {
             MessageBox.Show(this, "Add or select a context before running tests.", "Run Tests", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -1002,7 +1002,7 @@ public sealed class MainForm : Form
         _binding = true;
         try
         {
-            if (_ruleTree.SelectedNode?.Tag is RuleExpressionDocument rule)
+            if (_ruleTree.SelectedNode?.Tag is RuleExpression rule)
             {
                 _documentTabLabel.Text = "  " + rule.Name + "      ×";
                 _expressionTextBox.Text = rule.Expression;
@@ -1016,7 +1016,7 @@ public sealed class MainForm : Form
                 _tagsTextBox.Text = string.Join(", ", rule.Tags);
                 _priorityNumeric.Value = Math.Clamp(rule.Priority, (int)_priorityNumeric.Minimum, (int)_priorityNumeric.Maximum);
             }
-            else if (_ruleTree.SelectedNode?.Tag is RuleContextDocument context)
+            else if (_ruleTree.SelectedNode?.Tag is RuleContext context)
             {
                 _documentTabLabel.Text = "  Context: " + context.Name + "      ×";
                 _expressionTextBox.Text = context.QualifiedTypeName;
@@ -1031,7 +1031,7 @@ public sealed class MainForm : Form
                 _categoryNameTextBox.Clear();
                 _categoryDescriptionTextBox.Clear();
             }
-            else if (_ruleTree.SelectedNode?.Tag is RuleCategoryDocument category)
+            else if (_ruleTree.SelectedNode?.Tag is RuleCategory category)
             {
                 _documentTabLabel.Text = "  Category: " + category.Name + "      ×";
                 _expressionTextBox.Text = category.Description;
@@ -1046,7 +1046,7 @@ public sealed class MainForm : Form
                 _categoryNameTextBox.Text = category.Name;
                 _categoryDescriptionTextBox.Text = category.Description;
             }
-            else if (_ruleTree.SelectedNode?.Tag is RuleLibraryDocument)
+            else if (_ruleTree.SelectedNode?.Tag is RulesLibrary)
             {
                 _documentTabLabel.Text = "  Library: " + _library.Name + "      ×";
                 _expressionTextBox.Text = _library.Description;
@@ -1076,7 +1076,7 @@ public sealed class MainForm : Form
 
         switch (_ruleTree.SelectedNode.Tag)
         {
-            case RuleExpressionDocument rule:
+            case RuleExpression rule:
                 rule.Name = _ruleNameTextBox.Text.Trim();
                 rule.Description = _ruleDescriptionTextBox.Text;
                 rule.Expression = _expressionTextBox.Text;
@@ -1090,18 +1090,18 @@ public sealed class MainForm : Form
                 _ruleTree.SelectedNode.Text = rule.Name;
                 _documentTabLabel.Text = "  " + rule.Name + "      ×";
                 break;
-            case RuleContextDocument context:
+            case RuleContext context:
                 context.Name = _ruleNameTextBox.Text.Trim();
                 context.Description = _ruleDescriptionTextBox.Text;
                 _ruleTree.SelectedNode.Text = GetContextNodeText(context);
                 break;
-            case RuleCategoryDocument category:
+            case RuleCategory category:
                 category.Name = _categoryNameTextBox.Text.Trim();
                 category.Description = _categoryDescriptionTextBox.Text;
                 _ruleTree.SelectedNode.Text = category.Name;
                 _documentTabLabel.Text = "  Category: " + category.Name + "      ×";
                 break;
-            case RuleLibraryDocument:
+            case RulesLibrary:
                 _library.Name = _ruleNameTextBox.Text.Trim();
                 _library.Description = _ruleDescriptionTextBox.Text;
                 _ruleTree.SelectedNode.Text = _library.Name;
@@ -1121,18 +1121,18 @@ public sealed class MainForm : Form
             root.Tag = _library;
             root.ImageKey = root.SelectedImageKey = "library";
 
-            foreach (RuleContextDocument context in _library.Contexts)
+            foreach (RuleContext context in _library.Contexts)
             {
                 TreeNode contextNode = root.Nodes.Add(GetContextNodeText(context));
                 contextNode.Tag = context;
                 contextNode.ImageKey = contextNode.SelectedImageKey = "context";
 
-                foreach (RuleCategoryDocument category in context.Categories)
+                foreach (RuleCategory category in context.Categories)
                 {
                     AddCategoryNode(contextNode, category, context, selectRuleId);
                 }
 
-                foreach (RuleExpressionDocument rule in context.Expressions.Where(r => !ContainsRule(context.Categories, r.Id)))
+                foreach (RuleExpression rule in context.Expressions.Where(r => !ContainsRule(context.Categories, r.Id)))
                 {
                     TreeNode ruleNode = contextNode.Nodes.Add(rule.Name);
                     ruleNode.Tag = rule;
@@ -1153,7 +1153,7 @@ public sealed class MainForm : Form
         UpdateWindowTitle();
     }
 
-    private void AddCategoryNode(TreeNode parent, RuleCategoryDocument category, RuleContextDocument context, Guid? selectRuleId)
+    private void AddCategoryNode(TreeNode parent, RuleCategory category, RuleContext context, Guid? selectRuleId)
     {
         TreeNode node = parent.Nodes.Add(category.Name);
         node.Tag = category;
@@ -1161,7 +1161,7 @@ public sealed class MainForm : Form
 
         foreach (Guid id in category.ExpressionIds)
         {
-            RuleExpressionDocument? rule = context.Expressions.FirstOrDefault(e => e.Id == id);
+            RuleExpression? rule = context.Expressions.FirstOrDefault(e => e.Id == id);
             if (rule is null) continue;
             TreeNode ruleNode = node.Nodes.Add(rule.Name);
             ruleNode.Tag = rule;
@@ -1169,7 +1169,7 @@ public sealed class MainForm : Form
             if (rule.Id == selectRuleId) _ruleTree.SelectedNode = ruleNode;
         }
 
-        foreach (RuleCategoryDocument child in category.Categories)
+        foreach (RuleCategory child in category.Categories)
         {
             AddCategoryNode(node, child, context, selectRuleId);
         }
@@ -1185,7 +1185,7 @@ public sealed class MainForm : Form
     {
         foreach (TreeNode node in Flatten(_ruleTree.Nodes))
         {
-            if (node.Tag is RuleExpressionDocument rule && rule.Id == id)
+            if (node.Tag is RuleExpression rule && rule.Id == id)
             {
                 _ruleTree.SelectedNode = node;
                 node.EnsureVisible();
@@ -1206,7 +1206,7 @@ public sealed class MainForm : Form
 
     private void ShowIntelliSense()
     {
-        RuleContextDocument? context = GetSelectedContext();
+        RuleContext? context = GetSelectedContext();
         if (context is null) return;
 
         string prefix = GetCurrentToken(_expressionTextBox.Text, _expressionTextBox.SelectionStart);
@@ -1276,7 +1276,7 @@ public sealed class MainForm : Form
 
     private void UpdateContextLabels()
     {
-        RuleContextDocument? context = GetSelectedContext();
+        RuleContext? context = GetSelectedContext();
         if (context is null)
         {
             _contextNameLabel.Text = "Context Name:";
@@ -1291,7 +1291,7 @@ public sealed class MainForm : Form
     {
         object? selection = _ruleTree.SelectedNode?.Tag;
 
-        if (selection is RuleLibraryDocument)
+        if (selection is RulesLibrary)
         {
             ShowPropertiesView("Library View                                      ×", _libraryPropertiesView);
             _libraryViewStatusLabel.Text = "Status:    " + (_dirty ? "Not saved" : "Saved");
@@ -1301,7 +1301,7 @@ public sealed class MainForm : Form
             return;
         }
 
-        if (selection is RuleContextDocument context)
+        if (selection is RuleContext context)
         {
             ShowPropertiesView("Context View                                      ×", _contextPropertiesView);
             _contextDllPathLabel.Text = "DLL Path:    " + (string.IsNullOrWhiteSpace(context.AssemblyPath) ? "(not loaded from DLL)" : context.AssemblyPath);
@@ -1310,7 +1310,7 @@ public sealed class MainForm : Form
             return;
         }
 
-        if (selection is RuleCategoryDocument category)
+        if (selection is RuleCategory category)
         {
             ShowPropertiesView("Category View                                      ×", _categoryPropertiesView);
             _categoryNameLabel.Text = "Category Name:    " + category.Name;
@@ -1318,7 +1318,7 @@ public sealed class MainForm : Form
             return;
         }
 
-        if (selection is RuleExpressionDocument rule)
+        if (selection is RuleExpression rule)
         {
             ShowPropertiesView("Rule Properties                                      ×", _rulePropertiesView);
             _createdByLabel.Text = "Rule Id:    " + rule.Id;
@@ -1341,8 +1341,8 @@ public sealed class MainForm : Form
 
         return categoryNode.Parent.Tag switch
         {
-            RuleCategoryDocument parentCategory => parentCategory.Name,
-            RuleContextDocument parentContext => parentContext.Name,
+            RuleCategory parentCategory => parentCategory.Name,
+            RuleContext parentContext => parentContext.Name,
             _ => categoryNode.Parent.Text
         };
     }
@@ -1373,29 +1373,29 @@ public sealed class MainForm : Form
         menu.Show(_ruleTree, location);
     }
 
-    private RuleContextDocument? GetSelectedContext()
+    private RuleContext? GetSelectedContext()
     {
         TreeNode? node = _ruleTree.SelectedNode;
         while (node is not null)
         {
-            if (node.Tag is RuleContextDocument context) return context;
+            if (node.Tag is RuleContext context) return context;
             node = node.Parent;
         }
         return _library.Contexts.FirstOrDefault();
     }
 
-    private RuleCategoryDocument? GetSelectedCategory()
+    private RuleCategory? GetSelectedCategory()
     {
         TreeNode? node = _ruleTree.SelectedNode;
         while (node is not null)
         {
-            if (node.Tag is RuleCategoryDocument category) return category;
+            if (node.Tag is RuleCategory category) return category;
             node = node.Parent;
         }
         return null;
     }
 
-    private RuleExpressionDocument? GetSelectedRule() => _ruleTree.SelectedNode?.Tag as RuleExpressionDocument;
+    private RuleExpression? GetSelectedRule() => _ruleTree.SelectedNode?.Tag as RuleExpression;
 
     private bool ConfirmDiscardChanges()
     {
@@ -1415,10 +1415,10 @@ public sealed class MainForm : Form
 
     private void CreateMockupSampleLibrary()
     {
-        _library = new RuleLibraryDocument { Name = "LoanEligibilityRules", Description = "Sample loan eligibility rule library." };
-        var loan = new RuleContextDocument { Name = "LoanApplication", QualifiedTypeName = "Mortgage.Models.LoanApplication" };
-        var coBorrower = new RuleContextDocument { Name = "CoBorrower", QualifiedTypeName = "Mortgage.Models.CoBorrower" };
-        var property = new RuleContextDocument { Name = "Property", QualifiedTypeName = "Mortgage.Models.Property" };
+        _library = new RulesLibrary { Name = "LoanEligibilityRules", Description = "Sample loan eligibility rule library." };
+        var loan = new RuleContext { Name = "LoanApplication", QualifiedTypeName = "Mortgage.Models.LoanApplication" };
+        var coBorrower = new RuleContext { Name = "CoBorrower", QualifiedTypeName = "Mortgage.Models.CoBorrower" };
+        var property = new RuleContext { Name = "Property", QualifiedTypeName = "Mortgage.Models.Property" };
 
         AddCategoryWithRules(loan, "01 - Borrower",
             ("01 - Age Rule", "Loan.LoanCalculation.YoungestNonBorrowerSpouseAge < 18\r\nand Loan.Amount > 50000", "AGE-001", "Applicant's youngest non-borrower spouse is under 18 and loan amount exceeds $50,000."),
@@ -1433,7 +1433,7 @@ public sealed class MainForm : Form
         AddCategoryWithRules(loan, "04 - Debt",
             ("01 - Debt To Income Rule", "Loan.DebtToIncomeRatio < 45", "DTI-001", "Debt ratio is acceptable."));
 
-        loan.Expressions.Add(new RuleExpressionDocument
+        loan.Expressions.Add(new RuleExpression
         {
             Name = "03 - Invalid Rule",
             Expression = "Loan.Amount > \"ABC\"",
@@ -1441,7 +1441,7 @@ public sealed class MainForm : Form
             ResultCode = "BAD-001",
             ResultMessage = "Invalid sample."
         });
-        loan.Expressions.Add(new RuleExpressionDocument
+        loan.Expressions.Add(new RuleExpression
         {
             Name = "02 - Unmapped Rule",
             Expression = "Loan.Amount > 1000",
@@ -1453,12 +1453,12 @@ public sealed class MainForm : Form
         _library.Contexts.Add(property);
     }
 
-    private static void AddCategoryWithRules(RuleContextDocument context, string categoryName, params (string Name, string Expression, string Code, string Message)[] rules)
+    private static void AddCategoryWithRules(RuleContext context, string categoryName, params (string Name, string Expression, string Code, string Message)[] rules)
     {
-        var category = new RuleCategoryDocument { Name = categoryName };
+        var category = new RuleCategory { Name = categoryName };
         foreach ((string name, string expression, string code, string message) in rules)
         {
-            var rule = new RuleExpressionDocument
+            var rule = new RuleExpression
             {
                 Name = name,
                 Expression = expression,
@@ -1474,26 +1474,26 @@ public sealed class MainForm : Form
         context.Categories.Add(category);
     }
 
-    private static string GetContextNodeText(RuleContextDocument context) => string.IsNullOrWhiteSpace(context.QualifiedTypeName)
+    private static string GetContextNodeText(RuleContext context) => string.IsNullOrWhiteSpace(context.QualifiedTypeName)
         ? context.Name
         : $"{context.Name}  ({context.QualifiedTypeName})";
 
-    private static bool ContainsRule(IEnumerable<RuleCategoryDocument> categories, Guid id) =>
+    private static bool ContainsRule(IEnumerable<RuleCategory> categories, Guid id) =>
         categories.Any(c => c.ExpressionIds.Contains(id) || ContainsRule(c.Categories, id));
 
-    private static void RemoveRuleReferences(IEnumerable<RuleCategoryDocument> categories, Guid id)
+    private static void RemoveRuleReferences(IEnumerable<RuleCategory> categories, Guid id)
     {
-        foreach (RuleCategoryDocument category in categories)
+        foreach (RuleCategory category in categories)
         {
             category.ExpressionIds.Remove(id);
             RemoveRuleReferences(category.Categories, id);
         }
     }
 
-    private static bool RemoveCategory(List<RuleCategoryDocument> categories, RuleCategoryDocument target)
+    private static bool RemoveCategory(List<RuleCategory> categories, RuleCategory target)
     {
         if (categories.Remove(target)) return true;
-        foreach (RuleCategoryDocument category in categories)
+        foreach (RuleCategory category in categories)
         {
             if (RemoveCategory(category.Categories, target)) return true;
         }

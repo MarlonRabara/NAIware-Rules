@@ -1,5 +1,7 @@
 # NAIware Rules — Models & Runtime Extension Design
 
+> **Terminology and versioning rule:** This project uses **Library** as the root term for a persisted set of rules. Do not use "catalog" for the product/domain naming. Versioning belongs to the **RulesLibrary** as a whole. Individual rule expressions are not versioned and do not maintain expression-level revision history. A context owns categories, categories may contain deeply nested subcategories, and rule expressions are attached at category leaf nodes.
+
 ## 1. Existing Framework Analysis
 
 ### Current Architecture Summary
@@ -105,7 +107,7 @@ NAIware.Rules.Processing/      — High-level processor
     ReflectionRuleContextResolver.cs
 ```
 
-### Catalog Entities — Attribute Derivation
+### Library Entities — Attribute Derivation
 
 All identity patterns follow the existing `Identification` class (`Guid` + `string Name`).
 
@@ -216,7 +218,7 @@ All identity patterns follow the existing `Identification` class (`Guid` + `stri
 | `Result` | `RuleResultDefinition?` (populated on match) |
 | `Diagnostic` | `RuleMismatchDiagnostic?` (populated on mismatch when requested) |
 
-> `ExpressionVersion` is no longer a field here because expressions do not carry an individual version. The version is carried at the aggregate `RuleEvaluationResult.LibraryVersion` level.
+> `LibraryVersion` is no longer a field here because expressions do not carry an individual version. The version is carried at the aggregate `RuleEvaluationResult.LibraryVersion` level.
 
 #### RuleMismatchDiagnostic
 | Property | Type |
@@ -227,7 +229,7 @@ All identity patterns follow the existing `Identification` class (`Guid` + `stri
 
 ## 3. Design Decisions & Tradeoffs
 
-1. **Catalog POCOs, not database entities** — The existing framework has zero persistence. Adding EF Core or database coupling would be out of scope. The catalog is an in-memory model that could be serialized to JSON/XML by the consumer.
+1. **Library POCOs, not database entities** — The existing framework has zero persistence. Adding EF Core or database coupling would be out of scope. The library is an in-memory model that could be serialized to JSON/XML by the consumer.
 
 2. **Library-level versioning instead of expression-level versioning** — The `RulesLibrary` is the versioned unit; individual `RuleExpression` entries are mutable leaves within it. A change to any expression, category, parameter, or result definition constitutes a new library version. **Rationale**: expression-level versioning created high coordination cost (which expression version does a category point at? how do expressions of different versions interact within a single execution?) for little practical benefit. Library snapshots are coherent, auditable, and trivially reproducible.
 
@@ -235,11 +237,11 @@ All identity patterns follow the existing `Identification` class (`Guid` + `stri
 
 4. **`QualifiedTypeName` on `RuleContext`** — This is the key to auto-resolution. The `RuleProcessor` can match `inputObject.GetType().FullName` against registered contexts. This follows the `Type.FullName` pattern already used in `Factory.GetValue()` and `ParameterFactory`.
 
-5. **The existing `Rules.Engine` is used internally** — `RuleProcessor` creates a `Rules.Engine`, adds parameters via `ParameterFactory`, adds rules from the catalog, executes, and maps results. No engine changes needed.
+5. **The existing `Rules.Engine` is used internally** — `RuleProcessor` creates a `Rules.Engine`, adds parameters via `ParameterFactory`, adds rules from the library, executes, and maps results. No engine changes needed.
 
 6. **M:N join entities are explicit classes** — Rather than hidden `List<List<>>` nesting, the joins are first-class to support ordinal/ordering and future metadata.
 
-7. **`RuleResultDefinition` is embedded, not a separate entity** — Each expression owns its result definition. This keeps the model simple and avoids a separate result catalog.
+7. **`RuleResultDefinition` is embedded, not a separate entity** — Each expression owns its result definition. This keeps the model simple and avoids a separate result definition.
 
 8. **Mismatch diagnostics are opt-in** — When `IncludeDiagnostics` is false, no diagnostic objects are created. When true, the processor captures the parameter values that were used and the raw expression text.
 

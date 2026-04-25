@@ -3,7 +3,7 @@ using NAIware.Rules.Runtime;
 namespace NAIware.Rules.Processing;
 
 /// <summary>
-/// Defines the contract for a high-level rule processor that evaluates catalog-defined
+/// Defines the contract for a high-level rule processor that evaluates library-defined
 /// rules against input objects with automatic context resolution.
 /// </summary>
 public interface IRuleProcessor

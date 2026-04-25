@@ -1,5 +1,7 @@
 # NAIware Rule Editor — Windows UI Specification
 
+> **Terminology and versioning rule:** This project uses **Library** as the root term for a persisted set of rules. Do not use "catalog" for product/domain naming. Versioning belongs to the **RulesLibrary** as a whole. Individual rule expressions are not versioned and do not maintain expression-level revision history. A context owns categories, categories may contain deeply nested subcategories, and rule expressions are attached at category leaf nodes.
+
 ![NAIware Rule Editor Mockup](images/naiware-rule-editor-mockup.png)
 
 ## Overview

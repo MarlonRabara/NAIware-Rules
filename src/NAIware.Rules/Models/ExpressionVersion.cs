@@ -1,36 +1,38 @@
 namespace NAIware.Rules.Models;
 
 /// <summary>
-/// A snapshot of a <see cref="RuleExpression"/> at a specific version.
-/// Provides an audit trail of expression changes without duplicating the
-/// context or category structure.
+/// Obsolete placeholder retained only for backward source compatibility.
+/// Rule expressions are no longer independently versioned; versioning belongs to <see cref="RulesLibrary"/>.
 /// </summary>
 public class ExpressionVersion
 {
-    private readonly Guid _identity;
+    /// <summary>Creates an empty obsolete expression version record.</summary>
+    public ExpressionVersion()
+    {
+        Expression = string.Empty;
+    }
 
-    /// <summary>Creates a new expression version snapshot.</summary>
+    /// <summary>Creates an obsolete expression version record.</summary>
     public ExpressionVersion(int version, string expression, string? changeNote = null)
     {
-        _identity = Guid.NewGuid();
         Version = version;
         Expression = expression;
         ChangeNote = changeNote;
         CreatedUtc = DateTimeOffset.UtcNow;
     }
 
-    /// <summary>Gets the unique identity of this version snapshot.</summary>
-    public Guid Identity => _identity;
+    /// <summary>Gets or sets the obsolete expression version identifier.</summary>
+    public Guid Identity { get; set; } = Guid.NewGuid();
 
-    /// <summary>Gets the version number.</summary>
-    public int Version { get; }
+    /// <summary>Gets or sets the obsolete version number for the expression snapshot.</summary>
+    public int Version { get; set; }
 
-    /// <summary>Gets the expression text at this version.</summary>
-    public string Expression { get; }
+    /// <summary>Gets or sets the serialized expression content captured in this obsolete record.</summary>
+    public string Expression { get; set; }
 
-    /// <summary>Gets the UTC timestamp when this version was created.</summary>
-    public DateTimeOffset CreatedUtc { get; }
+    /// <summary>Gets or sets the UTC timestamp when this obsolete record was created.</summary>
+    public DateTimeOffset CreatedUtc { get; set; } = DateTimeOffset.UtcNow;
 
-    /// <summary>Gets the optional change note describing why this version was created.</summary>
-    public string? ChangeNote { get; }
+    /// <summary>Gets or sets the optional change note for this obsolete record.</summary>
+    public string? ChangeNote { get; set; }
 }

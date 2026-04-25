@@ -6,14 +6,22 @@ namespace NAIware.Rules.Runtime;
 public class RuleEvaluationResult
 {
     /// <summary>Creates a new evaluation result.</summary>
-    public RuleEvaluationResult(string contextName, string? categoryName)
+    public RuleEvaluationResult(string contextName, string? categoryName, string? libraryName = null, int libraryVersion = 0)
     {
+        LibraryName = libraryName;
+        LibraryVersion = libraryVersion;
         ContextName = contextName;
         CategoryName = categoryName;
         Matches = [];
         Mismatches = [];
         EvaluatedUtc = DateTimeOffset.UtcNow;
     }
+
+    /// <summary>Gets the name of the rules library that was evaluated, when available.</summary>
+    public string? LibraryName { get; }
+
+    /// <summary>Gets the library-level version used for evaluation. A value of 0 means not supplied.</summary>
+    public int LibraryVersion { get; }
 
     /// <summary>Gets the name of the rule context that was evaluated.</summary>
     public string ContextName { get; }

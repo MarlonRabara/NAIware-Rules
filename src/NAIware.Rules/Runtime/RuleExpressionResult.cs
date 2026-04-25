@@ -11,14 +11,12 @@ public class RuleExpressionResult
     public RuleExpressionResult(
         Guid expressionIdentity,
         string expressionName,
-        int expressionVersion,
         bool matched,
         RuleResultDefinition? result = null,
         RuleMismatchDiagnostic? diagnostic = null)
     {
         ExpressionIdentity = expressionIdentity;
         ExpressionName = expressionName;
-        ExpressionVersion = expressionVersion;
         Matched = matched;
         Result = result;
         Diagnostic = diagnostic;
@@ -29,9 +27,6 @@ public class RuleExpressionResult
 
     /// <summary>Gets the name of the evaluated expression.</summary>
     public string ExpressionName { get; }
-
-    /// <summary>Gets the version of the expression that was evaluated.</summary>
-    public int ExpressionVersion { get; }
 
     /// <summary>Gets whether the expression matched (evaluated to true).</summary>
     public bool Matched { get; }

@@ -36,12 +36,12 @@ Scenario: Processor evaluates all active expressions when no category specified
     And the first match should have code "BORR-002" and message "Borrowers present"
     And the evaluation result should have 1 mismatch
 
-Scenario: Expression versioning preserves history
+Scenario: Library versioning advances when expression changes
     Given a rules library with a LoanApplication context
     And the context has an expression "NoBorrowers" with rule "BorrowerCount = 0" and result code "BORR-001" and message "Must have at least one borrower"
-    When I revise expression "NoBorrowers" to "BorrowerCount < 1" with note "Use less-than for clarity"
-    Then expression "NoBorrowers" should be at version 2
-    And expression "NoBorrowers" should have 2 version history entries
+    When I update expression "NoBorrowers" to "BorrowerCount < 1" with note "Use less-than for clarity"
+    Then library should be at version 2
+    And library version should be 2
 
 Scenario: Inactive expressions are skipped during evaluation
     Given a rules library with a LoanApplication context

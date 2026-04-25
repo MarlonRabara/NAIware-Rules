@@ -1,5 +1,7 @@
 # NAIware Rules
 
+> **Terminology and versioning rule:** This project uses **Library** as the root term for a persisted set of rules. Do not use "catalog" for the product/domain naming. Versioning belongs to the **RulesLibrary** as a whole. Individual rule expressions are not versioned and do not maintain expression-level revision history. A context owns categories, categories may contain deeply nested subcategories, and rule expressions are attached at category leaf nodes.
+
 **NAIware Rules** (Not-AI Ware Rules) is a deterministic rules engine and decisioning library for .NET. It provides a lightweight, expression-based framework for evaluating business rules and mathematical formulae at runtime without relying on AI or machine-learning techniques.
 
 ## High-Level Architecture
@@ -10,8 +12,8 @@ The solution is organized into two libraries and their corresponding test projec
 NAIware-Rules/
 ├── src/
 │   ├── NAIware.Core/          # Foundational utilities and shared components
-│   └── NAIware.Rules/         # Rules engine, formula engine, logic processor, catalog, and rule processor
-│       ├── Catalog/           # Design-time domain model (RulesLibrary, RuleContext, RuleExpression, etc.)
+│   └── NAIware.Rules/         # Rules engine, formula engine, logic processor, library, and rule processor
+│       ├── Library/           # Design-time domain model (RulesLibrary, RuleContext, RuleExpression, etc.)
 │       ├── Processing/        # High-level rule processor with context resolution
 │       ├── Runtime/           # Evaluation request/result models and diagnostics
 │       ├── Rules/             # Rules engine and rule trees
@@ -20,7 +22,7 @@ NAIware-Rules/
 │   ├── NAIware.Core.Tests/    # BDD tests for core utilities
 │   └── NAIware.Rules.Tests/   # BDD tests for rules, formulae, mortgage processing, and rule processor
 ├── docs/
-│   └── CATALOG_DESIGN.md      # Catalog & runtime extension design document
+│   └── rule-model-design.md      # Library & runtime extension design document
 ├── NAIware-Rules.slnx         # Solution file (SDK-style XML)
 └── README.md
 ```
@@ -41,14 +43,14 @@ A shared library of foundational utilities used throughout the solution:
 
 ### NAIware.Rules
 
-The core decisioning library providing three processing engines and a catalog-driven rule processor:
+The core decisioning library providing three processing engines and a library-driven rule processor:
 
 | Component | Purpose |
 |---|---|
 | **Rules Engine** (`Rules.Engine`) | Parses and evaluates boolean rule expressions (e.g., `Age > 18 and Status = "Active"`) |
 | **Formulae Engine** (`Formulae.Engine`) | Parses and evaluates mathematical formula expressions (e.g., `Rate * Amount + Fee`) |
 | **Logic Processor Engine** (`LogicProcessorEngine`) | Evaluates complex expressions combining rules, formulae, and method calls |
-| **Rule Processor** (`Processing.RuleProcessor`) | High-level catalog-driven processor with automatic context resolution, structured results, versioning, and optional mismatch diagnostics |
+| **Rule Processor** (`Processing.RuleProcessor`) | High-level library-driven processor with automatic context resolution, structured results, versioning, and optional mismatch diagnostics |
 
 #### Key Concepts
 
@@ -59,15 +61,15 @@ The core decisioning library providing three processing engines and a catalog-dr
 - **Expression Groups** — Logical groupings of rules or formulae with parent-child inheritance.
 - **Identification** — Each rule/formula tree carries a `Guid` and `Name` for tracking which rules fire.
 
-#### Catalog & Processing Model
+#### Library & Processing Model
 
 The models layer (`NAIware.Rules.Models`) provides a design-time domain model for defining rules declaratively, while the processing layer (`NAIware.Rules.Processing`) evaluates them at runtime:
 
-- **Rules Library** — Top-level catalog container holding rule contexts.
+- **Rules Library** — Top-level library container holding rule contexts.
 - **Rule Context** — Domain classifier (e.g., `LoanApplication`) with a `QualifiedTypeName` that enables automatic resolution from the input object's type.
 - **Rule Category** — Named grouping of expressions within a context (many-to-many with expressions).
 - **Rule Expression** — A versioned, reusable rule definition with an optional `RuleResultDefinition` (code + message + optional severity).
-- **Expression Version** — Immutable snapshot of an expression at a given version, providing audit history.
+- **library Version** — Immutable snapshot of an expression at a given version, providing audit history.
 - **Rule Parameter Definition** — Declares a parameter the context expects, with optional property path for extraction.
 - **Rule Processor** — Takes an input object and optional category, auto-resolves the context, extracts parameters via `ParameterFactory`, evaluates expressions using the existing `Rules.Engine`, and returns structured `RuleEvaluationResult` with matches, mismatches, and optional diagnostics.
 
@@ -317,11 +319,11 @@ if (loanApplication.Borrowers.Count > 0 && allPass)
 
 Circular references are guarded with a `HashSet<object>` using `ReferenceEqualityComparer`.
 
-### Rule Processor (Catalog-Driven Evaluation)
+### Rule Processor (Library-Driven Evaluation)
 
-The `RuleProcessor` provides a high-level API that eliminates manual engine setup. Define rules in a catalog, pass an input object, and get structured results:
+The `RuleProcessor` provides a high-level API that eliminates manual engine setup. Define rules in a library, pass an input object, and get structured results:
 
-#### 1. Define the Catalog
+#### 1. Define the Library
 
 ```csharp
 using NAIware.Rules.Models;
@@ -384,21 +386,22 @@ foreach (var mismatch in result.Mismatches)
 }
 ```
 
-#### 3. Expression Versioning
+#### 3. Library-Level Versioning
+
+Versioning is owned by the `RulesLibrary`, not by individual `RuleExpression` instances.
 
 ```csharp
+Console.WriteLine(library.Version); // 1
+
 var expr = context.Expressions[0];
-Console.WriteLine(expr.Version);    // 1
-Console.WriteLine(expr.Expression); // "BorrowerCount = 0"
+expr.Expression = "BorrowerCount < 1";
 
-expr.Revise("BorrowerCount < 1", "Use less-than for clarity");
-Console.WriteLine(expr.Version);    // 2
-Console.WriteLine(expr.Expression); // "BorrowerCount < 1"
-
-// Full audit trail
-foreach (var v in expr.Versions)
-    Console.WriteLine($"v{v.Version}: {v.Expression} ({v.ChangeNote})");
+// Publishing or saving this changed rule set creates a new library version/snapshot.
+library.Version++;
+Console.WriteLine(library.Version); // 2
 ```
+
+Rule expressions are mutable leaves within a library version. They do not have expression-level version numbers, revision histories, or per-rule rollback semantics.
 
 ## Coding Standards
 
