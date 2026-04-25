@@ -172,6 +172,8 @@ Supported initial formats:
 - JSON
 - XML
 
+The Context view can also select a custom serialization assembly and serializer class. The selected class must expose a public `Deserialize(string filePath)` method, either static or instance-based. When configured, the editor uses that method to hydrate the selected serialized file instead of the built-in JSON/XML loader.
+
 The user does not manually enter property values in the initial version.
 
 Workflow:

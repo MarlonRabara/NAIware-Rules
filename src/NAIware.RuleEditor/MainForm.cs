@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using NAIware.Rules.Runtime;
 
 namespace NAIware.RuleEditor;
@@ -109,9 +111,29 @@ public sealed class MainForm : Form
     private readonly Label _libraryViewFileLabel = new() { Dock = DockStyle.Top, Height = 44, Text = "File:" };
     private readonly Label _libraryViewSummaryLabel = new() { Dock = DockStyle.Top, Height = 28, Text = "Summary:" };
 
-    private readonly Label _contextDllPathLabel = new() { Dock = DockStyle.Top, Height = 56, Text = "DLL Path:" };
-    private readonly Label _contextClassLabel = new() { Dock = DockStyle.Top, Height = 56, Text = "Context Class:" };
-    private readonly Label _contextInstanceLabel = new() { Dock = DockStyle.Top, Height = 28, Text = "Instance Name:" };
+    private readonly Label _contextDllPathLabel = new() { Height = 18, Text = "DLL Path" };
+    private readonly Label _contextClassLabel = new() { Height = 18, Text = "Qualified Type Name" };
+    private readonly Label _contextInstanceLabel = new() { Height = 18, Text = "Instance Name" };
+    private readonly TextBox _contextAssemblyPathTextBox = new() { ReadOnly = true, BorderStyle = BorderStyle.FixedSingle };
+    private readonly TextBox _contextQualifiedTypeTextBox = new() { ReadOnly = true, BorderStyle = BorderStyle.FixedSingle };
+    private readonly TextBox _contextInstanceNameTextBox = new() { BorderStyle = BorderStyle.FixedSingle };
+    private readonly TextBox _contextSerializedFileTextBox = new() { ReadOnly = true, BorderStyle = BorderStyle.FixedSingle };
+    private readonly TextBox _contextSerializerAssemblyTextBox = new() { ReadOnly = true, BorderStyle = BorderStyle.FixedSingle };
+    private readonly TextBox _contextSerializerTypeTextBox = new() { ReadOnly = true, BorderStyle = BorderStyle.FixedSingle };
+    private readonly Button _contextSelectTypeButton = new() { Height = 28, Text = "Browse..." };
+    private readonly Button _contextBrowseSerializedButton = new() { Height = 28, Text = "Browse..." };
+    private readonly Button _contextSelectSerializerButton = new() { Height = 28, Text = "Browse..." };
+    private readonly Label _contextSerializedFileLabel = new() { Height = 18, Text = "Serialized File (JSON/XML)" };
+    private readonly Label _contextSerializerAssemblyLabel = new() { Height = 18, Text = "Serializer DLL" };
+    private readonly Label _contextSerializerTypeLabel = new() { Height = 18, Text = "Serializer Type" };
+    private readonly Label _contextObjectGraphLabel = new() { Dock = DockStyle.Top, Height = 24, Text = "Select a JSON or XML file to preview the hydrated object graph.", ForeColor = SystemColors.GrayText };
+    private readonly TreeView _contextObjectGraphTreeView = new()
+    {
+        Dock = DockStyle.Fill,
+        HideSelection = false,
+        ShowLines = true,
+        Font = new Font("Segoe UI", 9.0f)
+    };
 
     private readonly Label _categoryNameLabel = new() { Dock = DockStyle.Top, Height = 28, Text = "Category Name:" };
     private readonly Label _categoryParentLabel = new() { Dock = DockStyle.Top, Height = 28, Text = "Parent:" };
@@ -179,6 +201,7 @@ public sealed class MainForm : Form
 
         WireEditorEvents();
         WireIntelliSenseEvents();
+        WireContextViewEvents();
 
         FormClosing += (_, e) =>
         {
@@ -549,10 +572,78 @@ public sealed class MainForm : Form
     private Control BuildContextPropertiesView()
     {
         var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0) };
-        panel.Controls.Add(_contextInstanceLabel);
-        panel.Controls.Add(_contextClassLabel);
-        panel.Controls.Add(_contextDllPathLabel);
+
+        var graphGroup = new GroupBox { Text = "Object Graph", Dock = DockStyle.Fill, Padding = new Padding(10, 18, 10, 10) };
+        _contextObjectGraphTreeView.BorderStyle = BorderStyle.FixedSingle;
+        graphGroup.Controls.Add(_contextObjectGraphTreeView);
+        graphGroup.Controls.Add(_contextObjectGraphLabel);
+
+        var dataGroup = new GroupBox { Text = "Serialized Data", Dock = DockStyle.Top, Height = 160, Padding = new Padding(10, 18, 10, 10) };
+        var dataTable = CreateContextFieldTable(rowCount: 3, includeButtonColumn: true);
+        AddContextFieldRow(dataTable, 0, _contextSerializerAssemblyLabel, _contextSerializerAssemblyTextBox, _contextSelectSerializerButton);
+        AddContextFieldRow(dataTable, 1, _contextSerializerTypeLabel, _contextSerializerTypeTextBox, null);
+        AddContextFieldRow(dataTable, 2, _contextSerializedFileLabel, _contextSerializedFileTextBox, _contextBrowseSerializedButton);
+        dataGroup.Controls.Add(dataTable);
+
+        var identityGroup = new GroupBox { Text = "Context Identity", Dock = DockStyle.Top, Height = 128, Padding = new Padding(10, 18, 10, 10) };
+        var identityTable = CreateContextFieldTable(rowCount: 2, includeButtonColumn: false);
+        AddContextFieldRow(identityTable, 0, _contextInstanceLabel, _contextInstanceNameTextBox, null);
+        AddContextFieldRow(identityTable, 1, _contextClassLabel, _contextQualifiedTypeTextBox, null);
+        identityGroup.Controls.Add(identityTable);
+
+        var assemblyGroup = new GroupBox { Text = "Assembly", Dock = DockStyle.Top, Height = 92, Padding = new Padding(10, 18, 10, 10) };
+        var assemblyTable = CreateContextFieldTable(rowCount: 1, includeButtonColumn: true);
+        AddContextFieldRow(assemblyTable, 0, _contextDllPathLabel, _contextAssemblyPathTextBox, _contextSelectTypeButton);
+        assemblyGroup.Controls.Add(assemblyTable);
+
+        panel.Controls.Add(graphGroup);
+        panel.Controls.Add(dataGroup);
+        panel.Controls.Add(identityGroup);
+        panel.Controls.Add(assemblyGroup);
         return panel;
+    }
+
+    private static TableLayoutPanel CreateContextFieldTable(int rowCount, bool includeButtonColumn)
+    {
+        var table = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = includeButtonColumn ? 3 : 2,
+            RowCount = rowCount,
+            Padding = new Padding(0),
+            Margin = new Padding(0)
+        };
+
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 126));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        if (includeButtonColumn) table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 86));
+
+        for (int i = 0; i < rowCount; i++)
+        {
+            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        }
+
+        return table;
+    }
+
+    private static void AddContextFieldRow(TableLayoutPanel table, int row, Label label, Control editor, Button? button)
+    {
+        label.Dock = DockStyle.Fill;
+        label.Margin = new Padding(0, 7, 8, 0);
+        label.TextAlign = ContentAlignment.TopLeft;
+
+        editor.Dock = DockStyle.Fill;
+        editor.Margin = button is null ? new Padding(0, 3, 0, 3) : new Padding(0, 3, 8, 3);
+
+        table.Controls.Add(label, 0, row);
+        table.Controls.Add(editor, 1, row);
+
+        if (button is not null)
+        {
+            button.Dock = DockStyle.Fill;
+            button.Margin = new Padding(0, 3, 0, 3);
+            table.Controls.Add(button, 2, row);
+        }
     }
 
     private Control BuildCategoryPropertiesView()
@@ -678,6 +769,23 @@ public sealed class MainForm : Form
         _severityComboBox.SelectedIndexChanged += (_, _) => OnEditorChanged();
     }
 
+    private void WireContextViewEvents()
+    {
+        _contextSelectTypeButton.Click += (_, _) => SelectContextTypeForCurrentSelection();
+        _contextSelectSerializerButton.Click += (_, _) => SelectSerializerForCurrentSelection();
+        _contextBrowseSerializedButton.Click += (_, _) => SelectSerializedFileForCurrentSelection();
+        _contextInstanceNameTextBox.TextChanged += (_, _) =>
+        {
+            if (_binding || _ruleTree.SelectedNode?.Tag is not RuleContext context) return;
+            context.Name = _contextInstanceNameTextBox.Text.Trim();
+            _ruleTree.SelectedNode.Text = GetContextNodeText(context);
+            _dirty = true;
+            UpdateContextLabels();
+            UpdateWindowTitle();
+            UpdateCountsAndStatus("Ready");
+        };
+    }
+
     private void WireIntelliSenseEvents()
     {
         _expressionTextBox.KeyUp += (_, e) =>
@@ -755,6 +863,288 @@ public sealed class MainForm : Form
         {
             MessageBox.Show(this, ex.Message, "Open Library", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
+    }
+
+    private void SelectContextTypeForCurrentSelection()
+    {
+        if (_ruleTree.SelectedNode?.Tag is not RuleContext context)
+        {
+            MessageBox.Show(this, "Select a context node before changing its type.", "Context Type", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var dialog = new OpenFileDialog { Filter = ".NET Assemblies (*.dll)|*.dll|All files (*.*)|*.*", Title = "Select Context Assembly" };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        try
+        {
+            IReadOnlyList<ReflectedTypeInfo> types = _typeDiscovery.DiscoverTypes(dialog.FileName);
+            using var picker = new ContextTypePickerDialog(types);
+            if (picker.ShowDialog(this) != DialogResult.OK || picker.SelectedType is null) return;
+
+            ReflectedTypeInfo selected = picker.SelectedType;
+            context.AssemblyPath = selected.AssemblyPath;
+            context.QualifiedTypeName = selected.FullName;
+            if (string.IsNullOrWhiteSpace(context.Name))
+                context.Name = selected.Type?.Name ?? selected.DisplayName;
+
+            _intelliSense.Invalidate();
+            _dirty = true;
+            _ruleTree.SelectedNode.Text = GetContextNodeText(context);
+            UpdateSelectionInfoPanel();
+            UpdateContextLabels();
+            UpdateWindowTitle();
+            UpdateCountsAndStatus($"Updated context type to {selected.FullName}.");
+
+            if (!string.IsNullOrWhiteSpace(context.SerializedDataPath))
+            {
+                TryHydrateAndShowObjectGraph(context, context.SerializedDataPath, setDirty: false, showErrors: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Select Context Type", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private void SelectSerializedFileForCurrentSelection()
+    {
+        if (_ruleTree.SelectedNode?.Tag is not RuleContext context)
+        {
+            MessageBox.Show(this, "Select a context node before loading serialized data.", "Serialized Data", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var dialog = new OpenFileDialog
+        {
+            Filter = "JSON and XML files (*.json;*.xml)|*.json;*.xml|JSON (*.json)|*.json|XML (*.xml)|*.xml|All files (*.*)|*.*",
+            Title = "Select Serialized Data File"
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        TryHydrateAndShowObjectGraph(context, dialog.FileName, setDirty: true, showErrors: true);
+    }
+
+    private void SelectSerializerForCurrentSelection()
+    {
+        if (_ruleTree.SelectedNode?.Tag is not RuleContext context)
+        {
+            MessageBox.Show(this, "Select a context node before selecting a serializer.", "Serializer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var dialog = new OpenFileDialog { Filter = ".NET Assemblies (*.dll)|*.dll|All files (*.*)|*.*", Title = "Select Serializer Assembly" };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        try
+        {
+            IReadOnlyList<ReflectedTypeInfo> serializerTypes = _typeDiscovery.DiscoverTypes(dialog.FileName);
+
+            if (serializerTypes.Count == 0)
+            {
+                MessageBox.Show(this, "No public concrete classes were found in the selected serializer assembly.", "Serializer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using var picker = new ContextTypePickerDialog(
+                serializerTypes,
+                title: "Select Serializer Type",
+                headerText: $"{serializerTypes.Count} public concrete type(s) discovered. Select the serializer class that exposes Deserialize(string filePath).",
+                filterPlaceholder: "Filter serializer types...");
+            if (picker.ShowDialog(this) != DialogResult.OK || picker.SelectedType is null) return;
+
+            ReflectedTypeInfo selected = picker.SelectedType;
+            if (!SupportsFilePathDeserialize(selected))
+            {
+                MessageBox.Show(this, $"'{selected.FullName}' must expose a public Deserialize(string filePath) method.", "Serializer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            context.SerializerAssemblyPath = selected.AssemblyPath;
+            context.SerializerQualifiedTypeName = selected.FullName;
+            _contextSerializerAssemblyTextBox.Text = selected.AssemblyPath;
+            _contextSerializerTypeTextBox.Text = selected.FullName;
+            _dirty = true;
+            UpdateWindowTitle();
+            UpdateCountsAndStatus($"Selected serializer {selected.FullName}.");
+
+            if (!string.IsNullOrWhiteSpace(context.SerializedDataPath))
+            {
+                TryHydrateAndShowObjectGraph(context, context.SerializedDataPath, setDirty: false, showErrors: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Serializer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private static bool SupportsFilePathDeserialize(ReflectedTypeInfo typeInfo)
+    {
+        return typeInfo.Type?.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public)
+            .Any(method => string.Equals(method.Name, "Deserialize", StringComparison.Ordinal)
+                           && method.GetParameters() is [{ ParameterType: var parameterType }]
+                           && parameterType == typeof(string)
+                           && method.ReturnType != typeof(void)) == true;
+    }
+
+    private void TryHydrateAndShowObjectGraph(RuleContext context, string filePath, bool setDirty, bool showErrors)
+    {
+        Type? contextType = _typeDiscovery.ResolveContextType(context);
+        if (contextType is null)
+        {
+            if (showErrors)
+                MessageBox.Show(this, $"The context type '{context.QualifiedTypeName}' could not be resolved. Select a valid DLL and type first.", "Serialized Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        try
+        {
+            object hydrated = DeserializeContextData(context, filePath, contextType);
+            context.SerializedDataPath = filePath;
+            _contextSerializedFileTextBox.Text = filePath;
+            PopulateObjectGraph(context.Name, hydrated);
+            if (setDirty)
+                _dirty = true;
+            UpdateWindowTitle();
+            UpdateCountsAndStatus($"Hydrated serialized data for {context.Name}.");
+        }
+        catch (Exception ex)
+        {
+            if (showErrors)
+                MessageBox.Show(this, ex.Message, "Serialized Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private object DeserializeContextData(RuleContext context, string filePath, Type contextType)
+    {
+        if (string.IsNullOrWhiteSpace(context.SerializerAssemblyPath)
+            || string.IsNullOrWhiteSpace(context.SerializerQualifiedTypeName))
+        {
+            return TestDataDialog.LoadObjectFromFile(filePath, contextType);
+        }
+
+        if (!File.Exists(context.SerializerAssemblyPath))
+        {
+            throw new FileNotFoundException("Serializer assembly not found.", context.SerializerAssemblyPath);
+        }
+
+        Assembly serializerAssembly = Assembly.LoadFrom(context.SerializerAssemblyPath);
+        Type serializerType = serializerAssembly.GetType(context.SerializerQualifiedTypeName)
+            ?? throw new InvalidOperationException($"Serializer type '{context.SerializerQualifiedTypeName}' could not be resolved.");
+
+        MethodInfo deserializeMethod = serializerType.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public)
+            .FirstOrDefault(method => string.Equals(method.Name, "Deserialize", StringComparison.Ordinal)
+                                      && method.GetParameters() is [{ ParameterType: var parameterType }]
+                                      && parameterType == typeof(string)
+                                      && method.ReturnType != typeof(void))
+            ?? throw new InvalidOperationException($"Serializer type '{context.SerializerQualifiedTypeName}' must expose Deserialize(string filePath).");
+
+        object? serializer = deserializeMethod.IsStatic ? null : Activator.CreateInstance(serializerType);
+        object? result = deserializeMethod.Invoke(serializer, [filePath]);
+        if (result is null) throw new InvalidOperationException("Serializer deserialized to null.");
+
+        if (!contextType.IsInstanceOfType(result))
+        {
+            throw new InvalidOperationException(
+                $"Serializer returned '{result.GetType().FullName}', which is not assignable to context type '{contextType.FullName}'.");
+        }
+
+        return result;
+    }
+
+    private void PopulateObjectGraph(string rootName, object root)
+    {
+        _contextObjectGraphTreeView.BeginUpdate();
+        try
+        {
+            _contextObjectGraphTreeView.Nodes.Clear();
+            string displayRoot = string.IsNullOrWhiteSpace(rootName) ? "instance" : rootName;
+            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            TreeNode rootNode = new($"{displayRoot}: {FormatValue(root)}");
+            _contextObjectGraphTreeView.Nodes.Add(rootNode);
+            AddObjectGraphNodes(rootNode, root, visited, depth: 0, maxDepth: 12);
+            rootNode.Expand();
+        }
+        finally
+        {
+            _contextObjectGraphTreeView.EndUpdate();
+        }
+    }
+
+    private void AddObjectGraphNodes(TreeNode parentNode, object? value, HashSet<object> visited, int depth, int maxDepth)
+    {
+        if (value is null || depth >= maxDepth) return;
+
+        Type type = value.GetType();
+        if (IsLeafType(type)) return;
+
+        if (!type.IsValueType)
+        {
+            if (!visited.Add(value)) return;
+        }
+
+        if (value is System.Collections.IEnumerable enumerable && value is not string)
+        {
+            int index = 0;
+            foreach (object? item in enumerable)
+            {
+                TreeNode child = parentNode.Nodes.Add($"[{index}] = {FormatValue(item)}");
+                if (item is not null)
+                    AddObjectGraphNodes(child, item, visited, depth + 1, maxDepth);
+                index++;
+            }
+            return;
+        }
+
+        foreach (PropertyInfo property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+        {
+            if (property.GetIndexParameters().Length > 0) continue;
+
+            object? propertyValue;
+            try
+            {
+                propertyValue = property.GetValue(value);
+            }
+            catch
+            {
+                continue;
+            }
+
+            TreeNode child = parentNode.Nodes.Add($"{property.Name}: {FormatValue(propertyValue)}");
+            if (propertyValue is not null)
+                AddObjectGraphNodes(child, propertyValue, visited, depth + 1, maxDepth);
+        }
+    }
+
+    private static string FormatValue(object? value)
+    {
+        if (value is null) return "null";
+        Type type = value.GetType();
+        if (IsLeafType(type)) return Convert.ToString(value) ?? type.Name;
+        return type.Name;
+    }
+
+    private static bool IsLeafType(Type type)
+    {
+        Type t = Nullable.GetUnderlyingType(type) ?? type;
+        return t.IsPrimitive
+               || t.IsEnum
+               || t == typeof(string)
+               || t == typeof(decimal)
+               || t == typeof(DateTime)
+               || t == typeof(DateTimeOffset)
+               || t == typeof(TimeSpan)
+               || t == typeof(Guid);
+    }
+
+    private sealed class ReferenceEqualityComparer : IEqualityComparer<object>
+    {
+        public static ReferenceEqualityComparer Instance { get; } = new();
+
+        public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
     private bool SaveLibrary()
@@ -1030,6 +1420,21 @@ public sealed class MainForm : Form
                 _priorityNumeric.Value = 0;
                 _categoryNameTextBox.Clear();
                 _categoryDescriptionTextBox.Clear();
+
+                _contextAssemblyPathTextBox.Text = context.AssemblyPath ?? string.Empty;
+                _contextQualifiedTypeTextBox.Text = context.QualifiedTypeName;
+                _contextInstanceNameTextBox.Text = context.Name;
+                _contextSerializerAssemblyTextBox.Text = context.SerializerAssemblyPath ?? string.Empty;
+                _contextSerializerTypeTextBox.Text = context.SerializerQualifiedTypeName ?? string.Empty;
+                _contextSerializedFileTextBox.Text = context.SerializedDataPath ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(context.SerializedDataPath))
+                {
+                    TryHydrateAndShowObjectGraph(context, context.SerializedDataPath, setDirty: false, showErrors: false);
+                }
+                else
+                {
+                    _contextObjectGraphTreeView.Nodes.Clear();
+                }
             }
             else if (_ruleTree.SelectedNode?.Tag is RuleCategory category)
             {
@@ -1091,8 +1496,12 @@ public sealed class MainForm : Form
                 _documentTabLabel.Text = "  " + rule.Name + "      ×";
                 break;
             case RuleContext context:
-                context.Name = _ruleNameTextBox.Text.Trim();
+                context.Name = _contextInstanceNameTextBox.Text.Trim();
                 context.Description = _ruleDescriptionTextBox.Text;
+                _contextQualifiedTypeTextBox.Text = context.QualifiedTypeName;
+                _contextAssemblyPathTextBox.Text = context.AssemblyPath ?? string.Empty;
+                _contextSerializerAssemblyTextBox.Text = context.SerializerAssemblyPath ?? string.Empty;
+                _contextSerializerTypeTextBox.Text = context.SerializerQualifiedTypeName ?? string.Empty;
                 _ruleTree.SelectedNode.Text = GetContextNodeText(context);
                 break;
             case RuleCategory category:
@@ -1304,9 +1713,15 @@ public sealed class MainForm : Form
         if (selection is RuleContext context)
         {
             ShowPropertiesView("Context View                                      ×", _contextPropertiesView);
-            _contextDllPathLabel.Text = "DLL Path:    " + (string.IsNullOrWhiteSpace(context.AssemblyPath) ? "(not loaded from DLL)" : context.AssemblyPath);
-            _contextClassLabel.Text = "Context Class:    " + (string.IsNullOrWhiteSpace(context.QualifiedTypeName) ? "(not set)" : context.QualifiedTypeName);
-            _contextInstanceLabel.Text = "Instance Name:    " + (string.IsNullOrWhiteSpace(context.Name) ? "(not set)" : context.Name);
+            _contextDllPathLabel.Text = "DLL Path";
+            _contextClassLabel.Text = "Qualified Type";
+            _contextInstanceLabel.Text = "Instance Name";
+            _contextAssemblyPathTextBox.Text = context.AssemblyPath ?? string.Empty;
+            _contextQualifiedTypeTextBox.Text = context.QualifiedTypeName;
+            _contextInstanceNameTextBox.Text = context.Name;
+            _contextSerializerAssemblyTextBox.Text = context.SerializerAssemblyPath ?? string.Empty;
+            _contextSerializerTypeTextBox.Text = context.SerializerQualifiedTypeName ?? string.Empty;
+            _contextSerializedFileTextBox.Text = context.SerializedDataPath ?? string.Empty;
             return;
         }
 
@@ -1416,24 +1831,24 @@ public sealed class MainForm : Form
     private void CreateMockupSampleLibrary()
     {
         _library = new RulesLibrary { Name = "LoanEligibilityRules", Description = "Sample loan eligibility rule library." };
-        var loan = new RuleContext { Name = "LoanApplication", QualifiedTypeName = "Mortgage.Models.LoanApplication" };
+        var loanContext = new RuleContext { Name = "LoanApplication", QualifiedTypeName = "Mortgage.Models.LoanApplication" };
         var coBorrower = new RuleContext { Name = "CoBorrower", QualifiedTypeName = "Mortgage.Models.CoBorrower" };
         var property = new RuleContext { Name = "Property", QualifiedTypeName = "Mortgage.Models.Property" };
 
-        AddCategoryWithRules(loan, "01 - Borrower",
+        AddCategoryWithRules(loanContext, "01 - Borrower",
             ("01 - Age Rule", "Loan.LoanCalculation.YoungestNonBorrowerSpouseAge < 18\r\nand Loan.Amount > 50000", "AGE-001", "Applicant's youngest non-borrower spouse is under 18 and loan amount exceeds $50,000."),
             ("02 - Citizenship Rule", "Loan.Borrower.IsCitizen = true", "CIT-001", "Borrower citizenship requirement met."),
             ("03 - Credit Score Rule", "Loan.Borrower.CreditScore >= 620", "CREDIT-001", "Credit score meets minimum threshold."));
-        AddCategoryWithRules(loan, "02 - Loan",
+        AddCategoryWithRules(loanContext, "02 - Loan",
             ("01 - Loan Amount Rule", "Loan.DeletedProperty > 1000", "AMT-001", "Loan amount is valid."),
             ("02 - Loan Purpose Rule", "Loan.Purpose = \"Purchase\"", "PURPOSE-001", "Loan purpose is supported."));
-        AddCategoryWithRules(loan, "03 - Property",
+        AddCategoryWithRules(loanContext, "03 - Property",
             ("01 - Property Type Rule", "UnknownMethod(Loan.Property.Type)", "PROP-001", "Property type is supported."),
             ("02 - Property Value Rule", "Loan.Property.Value > 100000", "VALUE-001", "Property value is acceptable."));
-        AddCategoryWithRules(loan, "04 - Debt",
+        AddCategoryWithRules(loanContext, "04 - Debt",
             ("01 - Debt To Income Rule", "Loan.DebtToIncomeRatio < 45", "DTI-001", "Debt ratio is acceptable."));
 
-        loan.Expressions.Add(new RuleExpression
+        loanContext.Expressions.Add(new RuleExpression
         {
             Name = "03 - Invalid Rule",
             Expression = "Loan.Amount > \"ABC\"",
@@ -1441,14 +1856,14 @@ public sealed class MainForm : Form
             ResultCode = "BAD-001",
             ResultMessage = "Invalid sample."
         });
-        loan.Expressions.Add(new RuleExpression
+        loanContext.Expressions.Add(new RuleExpression
         {
             Name = "02 - Unmapped Rule",
             Expression = "Loan.Amount > 1000",
             Severity = "Warning"
         });
 
-        _library.Contexts.Add(loan);
+        _library.Contexts.Add(loanContext);
         _library.Contexts.Add(coBorrower);
         _library.Contexts.Add(property);
     }

@@ -49,6 +49,15 @@ public class RuleContext
     /// <summary>Gets or sets the optional source assembly path used by the editor to resolve the context type.</summary>
     public string? AssemblyPath { get; set; }
 
+    /// <summary>Gets or sets the optional serialized sample file path used to hydrate and preview context data in the editor.</summary>
+    public string? SerializedDataPath { get; set; }
+
+    /// <summary>Gets or sets the optional source assembly path used by the editor to resolve a custom serializer type.</summary>
+    public string? SerializerAssemblyPath { get; set; }
+
+    /// <summary>Gets or sets the optional custom serializer type that exposes Deserialize(string filePath).</summary>
+    public string? SerializerQualifiedTypeName { get; set; }
+
     /// <summary>Gets or sets the categories in this context.</summary>
     public List<RuleCategory> Categories { get; set; } = [];
 

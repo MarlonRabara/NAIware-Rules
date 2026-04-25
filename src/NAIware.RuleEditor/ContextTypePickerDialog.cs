@@ -45,12 +45,16 @@ public sealed class ContextTypePickerDialog : Form
     public ReflectedTypeInfo? SelectedType => _typeListBox.SelectedItem as ReflectedTypeInfo;
 
     /// <summary>Initializes the dialog with the candidate types.</summary>
-    public ContextTypePickerDialog(IReadOnlyList<ReflectedTypeInfo> types)
+    public ContextTypePickerDialog(
+        IReadOnlyList<ReflectedTypeInfo> types,
+        string title = "Select Context Type",
+        string? headerText = null,
+        string filterPlaceholder = "Filter types (e.g., LoanApplication)...")
     {
         ArgumentNullException.ThrowIfNull(types);
         _types = types;
 
-        Text = "Select Context Type";
+        Text = title;
         Width = 820;
         Height = 540;
         StartPosition = FormStartPosition.CenterParent;
@@ -59,11 +63,12 @@ public sealed class ContextTypePickerDialog : Form
         AcceptButton = _okButton;
         CancelButton = _cancelButton;
 
+        _filterTextBox.PlaceholderText = filterPlaceholder;
         _typeListBox.DisplayMember = nameof(ReflectedTypeInfo.DisplayName);
 
         var header = new Label
         {
-            Text = $"{types.Count} public concrete type(s) discovered. Select one to use as the rule context.",
+            Text = headerText ?? $"{types.Count} public concrete type(s) discovered. Select one to use as the rule context.",
             Dock = DockStyle.Top,
             Height = 32,
             Padding = new Padding(10, 8, 10, 0),

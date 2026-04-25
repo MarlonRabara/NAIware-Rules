@@ -117,7 +117,7 @@ public sealed class TestDataDialog : Form
     {
         try
         {
-            LoadedObject = LoadObject(_fileTextBox.Text, _contextType);
+            LoadedObject = LoadObjectFromFile(_fileTextBox.Text, _contextType);
             DialogResult = DialogResult.OK;
             Close();
         }
@@ -127,7 +127,7 @@ public sealed class TestDataDialog : Form
         }
     }
 
-    private static object LoadObject(string path, Type type)
+    public static object LoadObjectFromFile(string path, Type type)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             throw new FileNotFoundException("Please select a valid test data file.", path);
