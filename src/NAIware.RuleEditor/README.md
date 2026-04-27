@@ -1,147 +1,332 @@
-# NAIware Rule Editor (Windows Forms)
+# NAIware Rule Editor
 
-> **Terminology and versioning rule:** This project uses **Library** as the root term for a persisted set of rules. Do not use "catalog" for product/domain naming. Versioning belongs to the **RulesLibrary** as a whole. Individual rule expressions are not versioned and do not maintain expression-level revision history. A context owns categories, categories may contain deeply nested subcategories, and rule expressions are attached at category leaf nodes.
+NAIware.RuleEditor is a Windows Forms application for creating, editing, validating, testing, and saving NAIware rule libraries. The primary UI is implemented in `MainForm.cs`, with supporting dialogs for selecting .NET types, loading test data, and viewing test results.
 
-A developer-focused Windows Forms application for authoring, validating, and testing
-rule libraries for the NAIware deterministic rules engine.
+## Main window layout
 
-Target framework: **.NET 10** (`net10.0-windows`) · Windows Forms · C# 12
+`MainForm` builds the UI in `BuildFormLayout()`.
 
-## Project Name & Solution Entry
+| UI area | Purpose | Builder method |
+| --- | --- | --- |
+| Menu bar | File, Library, Context, Category, Rule, Test, View, Tools, and Help commands | `BuildMenu()` |
+| Command strip | Large icon shortcuts for common commands | `BuildCommandStrip()` |
+| Left pane | Rule library tree, search box, and library counts | `BuildLibraryPanel()` |
+| Center pane | Rule expression editor and result definition fields | `BuildEditorPanel()` |
+| Right pane | Library, context, category, or rule properties | `BuildPropertiesPanel()` |
+| Bottom pane | Validation issue/error list | `BuildErrorPanel()` |
+| Status bar | Ready text, library name, and validation status | `BuildStatusBar()` |
 
-The spec text mentions `NAIware.RuleEditor.WinForms` as the canonical folder and project
-name, but the existing `NAIware-Rules.slnx` already registers this project as
-`src/NAIware.RuleEditor/NAIware.RuleEditor.csproj`. To preserve the solution file and
-avoid an unnecessary folder rename, the project name is kept as **`NAIware.RuleEditor`**.
-The root namespace is `NAIware.RuleEditor`. If the folder/project rename is required for
-downstream tooling, update `NAIware-Rules.slnx` and rename the folder; no code changes
-are needed.
+The main layout is created by `BuildShell()` using nested `SplitContainer` controls.
 
-## Project Reference
+## Startup and form lifecycle
 
-The project references `NAIware.Rules` via a direct `ProjectReference`:
+| Event or action | Handler method | Description |
+| --- | --- | --- |
+| Form construction | `MainForm()` | Initializes services, calls `InitializeComponent()`, builds the layout, wires events, creates sample data, refreshes the tree, and updates status. |
+| Layout construction | `BuildFormLayout()` | Creates images, assigns image lists, initializes severity values, and adds the shell/menu/toolbar/status controls. |
+| Form closing | `ConfirmDiscardChanges()` | Prompts to save unsaved changes before closing. |
+| Initial sample library creation | `CreateMockupSampleLibrary()` | Creates mock rule library data for initial display. |
+| Tree refresh | `RefreshTree()` | Rebuilds the library tree from the current `RulesLibrary`. |
 
-```xml
-<ItemGroup>
-  <ProjectReference Include="..\NAIware.Rules\NAIware.Rules.csproj" />
-</ItemGroup>
-```
+## Menu features and event handlers
 
-The editor consumes the engine's domain model directly:
+### File menu
 
-- `NAIware.Rules.Models.RulesLibrary`
-- `NAIware.Rules.Models.RuleContext`
-- `NAIware.Rules.Models.RuleCategory`
-- `NAIware.Rules.Models.RuleExpression`
-- `NAIware.Rules.Models.RuleResultDefinition`
-- `NAIware.Rules.Processing.RuleProcessor`
-- `NAIware.Rules.Runtime.RuleEvaluationRequest`
-- `NAIware.Rules.Runtime.RuleEvaluationResult`
+| Command | Shortcut | Handler | Description |
+| --- | --- | --- | --- |
+| New Library | Ctrl+N | `NewLibrary()` | Creates a new library after confirming unsaved changes. |
+| Open Library | Ctrl+O | `OpenLibrary()` | Opens a rule library JSON file. |
+| Save | Ctrl+S | `SaveLibrary()` | Saves to the current path, or prompts with Save As if needed. |
+| Save As | Ctrl+Shift+S | `SaveLibraryAs()` | Prompts for a file path and saves the library. |
+| Exit | Alt+F4 | `Close()` | Closes the form. Unsaved changes are handled by the form closing event. |
 
-These types are **not** duplicated in the UI project. The editor consumes `NAIware.Rules.Models` directly for the in-memory model and JSON persistence. `EditorModels.cs` now contains only editor support types such as validation issues and reflected type metadata. `RuleLibraryMapper` is retained only as a compatibility pass-through helper.
+### Library menu
 
-## File / Class Layout
+| Command | Shortcut | Handler | Description |
+| --- | --- | --- | --- |
+| Add Context From DLL | Ctrl+D | `AddContextFromDll()` | Loads public concrete types from a selected DLL and adds the selected type as a context. |
+| Manage Contexts | None | Inline `MessageBox.Show(...)` | Placeholder for future functionality. |
+| Validate Library | F6 | `ValidateLibrary()` | Validates the current library and populates the error list. |
 
-| File | Role |
-|---|---|
-| `Program.cs` | Application entry point |
-| `MainForm.cs` | Main editor window — menu, toolbar, tree, tabbed editor, error list, status bar |
-| `EditorModels.cs` | Editor-only support types (`ValidationIssue`, `ReflectedTypeInfo`). Rule libraries, contexts, categories, and expressions come directly from `NAIware.Rules.Models`. |
-| `RuleLibrarySerializer.cs` | JSON load/save |
-| `AssemblyTypeDiscoveryService.cs` | Reflects public concrete types from a DLL; resolves context types |
-| `ContextTypePickerDialog.cs` | Filtered list modal for choosing a context type |
-| `IntelliSenseService.cs` | Reflected property-path cache shared with validation; supplies auto-complete suggestions |
-| `RuleValidationService.cs` | Compiler-style validation (property paths, parentheses, type mismatch, result definition completeness) |
-| `RuleTestService.cs` | Uses existing NAIware.Rules.Models directly, creates `RuleProcessor`, evaluates against a hydrated input |
-| `RuleLibraryMapper.cs` | Compatibility pass-through helper. The editor now uses `NAIware.Rules.Models.RulesLibrary` directly. |
-| `TestDataDialog.cs` | Prompts the user for a JSON/XML file and hydrates it into the selected context type |
-| `TestResultDialog.cs` | Shows matches, mismatches, and diagnostics from a `RuleEvaluationResult` |
+### Context menu
 
-## Main Window Layout
+| Command | Shortcut | Handler | Description |
+| --- | --- | --- | --- |
+| Add Context From DLL | Ctrl+D | `AddContextFromDll()` | Adds a new context from a selected assembly. |
+| Remove Selected Context | None | `DeleteSelected()` | Deletes the selected context after confirmation. |
 
-The main window matches the mockup's structure:
+### Category menu
 
-- **Menu bar** — `File`, `Library`, `Test`, `Help` with standard keyboard shortcuts
-  (Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+D, Ctrl+R, F5, F6).
-- **Toolbar** — quick access to all primary commands with tooltips.
-- **Left panel** — rule library tree: `Library → Context → Categories → Subcategories → Rules`.
-  Right-click yields context-aware add/delete actions. Nodes carry colored glyph icons
-  (L/C/G/R) rendered programmatically so no binary assets are required.
-- **Right panel** — tabbed editor that switches based on the selected tree node:
-  - Rule: `Expression`, `Metadata` (name, description, enabled, priority, tags), `Result Definition` (code, message, severity, optional value).
-  - Context: name, qualified type name (read-only), description, source assembly path.
-  - Category: name, description.
-  - Library: name, description.
-- **Bottom panel** — Visual Studio-style error list with columns: icon, `Severity`,
-  `Description`, `Context`, `Category`, `Rule`, `Expression Id`. Double-click an error to
-  navigate to the offending rule and open the Expression tab.
-- **Status bar** — shows the last operation plus an error/warning count summary.
+| Command | Shortcut | Handler | Description |
+| --- | --- | --- | --- |
+| Add Category | None | `AddCategory()` | Adds a category to the selected context. |
+| Add Subcategory | None | `AddSubcategory()` | Adds a nested category under the selected category. |
+| Delete Category | None | `DeleteSelected()` | Deletes the selected category after confirmation. |
 
-## Features Implemented
+### Rule menu
 
-| Feature | Status |
-|---|---|
-| New / Open / Save / Save As (JSON) | ✓ With dirty-state tracking and unsaved-changes prompt |
-| Add Context From DLL | ✓ Reflects public concrete classes; stores qualified type name + assembly path |
-| Tree view with library / contexts / categories / subcategories / rules | ✓ Full CRUD including nested subcategories |
-| Raw expression editor (AND/OR, parentheses, dot notation, indexed collections) | ✓ Monospaced font, tab-safe editing |
-| Basic IntelliSense (property paths, keywords, operators) | ✓ Triggered at ≥2 chars, positioned near caret, Enter/Tab to accept, Esc to dismiss |
-| Shared reflection metadata between validation and IntelliSense | ✓ `IntelliSenseService.GetMetadata()` is used by both |
-| Rule metadata editor (Name, Description, Enabled, Tags, Priority) | ✓ |
-| Result definition editor (Code, Message, Severity, Optional Value) | ✓ |
-| Compiler-style validation | ✓ Parentheses balance, unknown property paths, type-mismatch comparisons, missing result definitions |
-| Visual Studio-style error list with double-click navigation | ✓ Icon column + colored severity + sortable |
-| Test module with JSON/XML hydration and real rule processor execution | ✓ Uses `NAIware.Rules.Processing.RuleProcessor` with diagnostics |
+| Command | Shortcut | Handler | Description |
+| --- | --- | --- | --- |
+| Add Rule | Ctrl+R | `AddRule()` | Adds a new rule to the selected context and optional category. |
+| Duplicate Rule | Ctrl+Shift+D | `DuplicateRule()` | Copies the selected rule. |
+| Delete Rule | Delete | `DeleteSelected()` | Deletes the selected rule and removes category references. |
+| Move Up | Ctrl+Up | `MoveSelected(-1)` | Moves the selected rule up. |
+| Move Down | Ctrl+Down | `MoveSelected(1)` | Moves the selected rule down. |
 
-## Intentionally Stubbed / Deferred
+### Test menu
 
-- **No manual property-value entry UI for tests.** As specified, tests require a JSON or
-  XML file; there is no form-based data entry.
-- **No plain-English translation** of rule expressions.
-- **No visual rule-builder.**
-- **Registered-method auto-complete.** The IntelliSense service is shaped to accept a
-  method library in a future revision; only property paths, keywords, and operators are
-  suggested today.
-- **Syntax highlighting and inline error underlines** are out of scope for the first
-  version (called out as future enhancements in the spec).
-- **Subcategory hierarchy in the engine model.** Nested UI subcategories map onto real
-  engine subcategories via `RuleCategory.AddSubcategory`. Selecting a parent category
-  at runtime evaluates every descendant's active expressions.
-- **Library-level versioning UI.** The library model carries a `Version` field and a
-  `SavedUtc` timestamp, but the editor does not yet expose a Draft → Publish lifecycle.
-  Publishing is a follow-up once engine-side `Publish()` semantics land.
+| Command | Shortcut | Handler | Description |
+| --- | --- | --- | --- |
+| Run Tests | F5 | `TestRules()` | Loads test data, evaluates rules, and shows test results. |
+| Test Settings | None | Inline `MessageBox.Show(...)` | Placeholder for future functionality. |
+| Validate Library | F6 | `ValidateLibrary()` | Validates the current library. |
 
-## Keyboard Shortcuts
+### View menu
 
-| Shortcut | Action |
-|---|---|
-| Ctrl+N | New Library |
-| Ctrl+O | Open Library |
-| Ctrl+S | Save Library |
-| Ctrl+Shift+S | Save Library As |
-| Ctrl+D | Add Context From DLL |
-| Ctrl+R | Add Rule |
-| Delete | Delete selected tree node |
-| F5 | Test Rules |
-| F6 | Validate Library |
+| Command | Shortcut | Handler | Description |
+| --- | --- | --- | --- |
+| Expand All | None | `_ruleTree.ExpandAll()` | Expands all tree nodes. |
+| Collapse All | None | `_ruleTree.CollapseAll()` | Collapses all tree nodes. |
+| Error List | Ctrl+E | `_errorList.Focus()` | Moves focus to the error list. |
 
-## Running
+### Tools menu
 
-From Visual Studio: set `NAIware.RuleEditor` as the startup project and press F5.
+| Command | Handler | Description |
+| --- | --- | --- |
+| Options | Inline `MessageBox.Show(...)` | Placeholder for future functionality. |
 
-From CLI:
+### Help menu
 
-```powershell
-dotnet run --project src/NAIware.RuleEditor/NAIware.RuleEditor.csproj
-```
+| Command | Shortcut | Handler | Description |
+| --- | --- | --- | --- |
+| View Documentation | F1 | Inline `MessageBox.Show(...)` | Displays a reference to `docs/windows-ui.md`. |
+| About NAIware Rule Editor | None | `ShowAbout()` | Displays application information. |
 
-## Architecture Notes
+## Command strip buttons
 
-- **Strict UI / service / model separation.** Services hold no UI references and can be
-  unit-tested in isolation. The `MainForm` is the only class that touches both services
-  and controls.
-- **Nullable reference types enabled** across the project.
-- **Zero build warnings** (CS1591 "missing XML comment" is suppressed for top-level
-  form-building private methods; all public types carry XML docs).
-- **No external NuGet dependencies** beyond the .NET runtime. All icons are rendered
-  programmatically to keep the project binary-asset-free.
+`BuildCommandStrip()` creates large toolbar buttons with `ToolButton()`.
+
+| Button | Handler | Description |
+| --- | --- | --- |
+| New Library | `NewLibrary()` | Creates a new library. |
+| Open Library | `OpenLibrary()` | Opens a library file. |
+| Save | `SaveLibrary()` | Saves the current library. |
+| Save As | `SaveLibraryAs()` | Saves to a selected file. |
+| Add Context | `AddContextFromDll()` | Adds a context from a DLL. |
+| Manage Contexts | Inline `MessageBox.Show(...)` | Placeholder. |
+| Add Category | `AddCategory()` | Adds a category. |
+| Add Subcategory | `AddSubcategory()` | Adds a subcategory. |
+| Delete Category | `DeleteSelected()` | Deletes the selected item. |
+| Reorder | Inline `MessageBox.Show(...)` | Explains that Move Up/Move Down reorder rules. |
+| Add Rule | `AddRule()` | Adds a rule. |
+| Duplicate Rule | `DuplicateRule()` | Duplicates a rule. |
+| Delete Rule | `DeleteSelected()` | Deletes the selected item. |
+| Move Up | `MoveSelected(-1)` | Moves the selected rule up. |
+| Move Down | `MoveSelected(1)` | Moves the selected rule down. |
+| Run Tests | `TestRules()` | Runs rule tests. |
+| Test Settings | Inline `MessageBox.Show(...)` | Placeholder. |
+| Validate Library | `ValidateLibrary()` | Validates the library. |
+
+## Rule library tree
+
+The left pane shows a hierarchy of library, contexts, categories, subcategories, and rules.
+
+| UI event | Handler | Description |
+| --- | --- | --- |
+| Tree selection changed | `BindSelection()` | Loads selected item data into the editor and properties panel. |
+| Tree right-click | `ShowTreeMenu(Point location)` | Opens the tree context menu. |
+| Context menu Add Category | `AddCategory()` | Adds a category. |
+| Context menu Add Subcategory | `AddSubcategory()` | Adds a subcategory. |
+| Context menu Add Rule | `AddRule()` | Adds a rule. |
+| Context menu Duplicate Rule | `DuplicateRule()` | Duplicates a rule. |
+| Context menu Delete | `DeleteSelected()` | Deletes the selected item. |
+
+Supporting tree methods:
+
+| Method | Purpose |
+| --- | --- |
+| `GetSelectedContext()` | Finds the selected context by walking up the tree. |
+| `GetSelectedCategory()` | Finds the selected category by walking up the tree. |
+| `GetSelectedRule()` | Returns the selected rule, if any. |
+| `AddCategoryNode()` | Adds category and rule nodes recursively. |
+| `ContainsRule()` | Detects whether a rule is already represented under a category. |
+| `RemoveRuleReferences()` | Removes deleted rule IDs from categories. |
+| `RemoveCategory()` | Removes a category from nested category lists. |
+
+## Expression editor
+
+The center editor is shown for selected rules. It includes the expression text box, IntelliSense list, Insert combo box, Validate button, and result definition fields.
+
+| UI event | Handler | Description |
+| --- | --- | --- |
+| Expression text changed | `OnEditorChanged()` | Writes edits to the selected rule and marks the library dirty. |
+| Result code changed | `OnEditorChanged()` | Updates the selected rule result code. |
+| Result message changed | `OnEditorChanged()` | Updates the selected rule result message. |
+| Severity changed | `OnEditorChanged()` | Updates the selected rule severity. |
+| Optional value changed | `OnEditorChanged()` | Updates the selected rule optional value. |
+| Validate clicked | `ValidateLibrary()` | Runs validation. |
+| Insert combo changed | `InsertSelectedSuggestion(ComboBox comboBox)` | Inserts supported operators or keywords. |
+| Expression key up | `ShowIntelliSense()` | Displays suggestions for the current token. |
+| Expression key down | Inline logic in `WireIntelliSenseEvents()` | Navigates, accepts, or dismisses IntelliSense. |
+| IntelliSense double-click | `InsertIntelliSenseSelection()` | Inserts the selected suggestion. |
+
+Supporting editor methods:
+
+| Method | Purpose |
+| --- | --- |
+| `WireEditorEvents()` | Wires text, checkbox, numeric, and combo change events to `OnEditorChanged()`. |
+| `WireIntelliSenseEvents()` | Wires expression editor keyboard behavior and IntelliSense selection. |
+| `FlushSelectionToModel()` | Copies UI values back into the selected model object. |
+| `UpdateEditorVisibility()` | Hides the expression editor when the selected item is not a rule. |
+| `GetCurrentToken()` | Gets the token before the caret for IntelliSense lookup. |
+
+## Properties panel
+
+`UpdateSelectionInfoPanel()` switches the right-hand panel between library, context, category, and rule views. `ShowPropertiesView(string title, Control view)` controls which panel is visible.
+
+### Rule properties
+
+Built by `BuildRulePropertiesView()`.
+
+| Field | Handler | Model update |
+| --- | --- | --- |
+| Name | `OnEditorChanged()` | `RuleExpression.Name` |
+| Description | `OnEditorChanged()` | `RuleExpression.Description` |
+| Enabled | `OnEditorChanged()` | `RuleExpression.IsActive` |
+| Tags | `OnEditorChanged()` | `RuleExpression.Tags` |
+| Priority | `OnEditorChanged()` | `RuleExpression.Priority` |
+
+### Library properties
+
+Built by `BuildLibraryPropertiesView()` and updated by `UpdateSelectionInfoPanel()`.
+
+Displays saved state, saved timestamp, file path, version, context count, and rule count.
+
+### Category properties
+
+Built by `BuildCategoryPropertiesView()`.
+
+| Field | Handler | Model update |
+| --- | --- | --- |
+| Name | `OnEditorChanged()` | `RuleCategory.Name` |
+| Description | `OnEditorChanged()` | `RuleCategory.Description` |
+| Parent display | `UpdateSelectionInfoPanel()` / `GetCategoryParentName()` | Display only |
+
+### Context properties
+
+Built by `BuildContextPropertiesView()`.
+
+| Field or button | Handler | Description |
+| --- | --- | --- |
+| DLL Path Browse | `SelectContextTypeForCurrentSelection()` | Selects the context assembly and type. |
+| Instance Name | Inline text handler in `WireContextViewEvents()` | Updates `RuleContext.Name`. |
+| Serializer DLL Browse | `SelectSerializerForCurrentSelection()` | Selects a serializer assembly and serializer type. |
+| Serialized File Browse | `SelectSerializedFileForCurrentSelection()` | Selects serialized JSON/XML data and hydrates an object graph. |
+| Object Graph tree | `PopulateObjectGraph()` / `AddObjectGraphNodes()` | Displays hydrated object data. |
+
+Supporting context methods:
+
+| Method | Purpose |
+| --- | --- |
+| `WireContextViewEvents()` | Wires context-specific field and button events. |
+| `SelectContextTypeForCurrentSelection()` | Changes the selected context type. |
+| `SelectSerializerForCurrentSelection()` | Selects and validates a custom serializer. |
+| `SelectSerializedFileForCurrentSelection()` | Selects data to hydrate. |
+| `TryHydrateAndShowObjectGraph()` | Resolves the context type, deserializes data, and updates the object graph. |
+| `DeserializeContextData()` | Uses default JSON/XML loading or the selected custom serializer. |
+| `SupportsFilePathDeserialize()` | Ensures a serializer exposes `Deserialize(string filePath)`. |
+| `ResolveTypeFromAssembly()` | Resolves types by full name or assembly-qualified name. |
+| `PopulateObjectGraph()` | Rebuilds the object graph tree. |
+| `AddObjectGraphNodes()` | Recursively adds object, property, and collection nodes. |
+| `FormatValue()` | Formats node display values. |
+| `IsLeafType()` | Determines whether values are scalar leaves. |
+| `UpdateContextLabels()` | Updates context labels in the properties view. |
+
+## Error list
+
+The bottom pane displays validation results.
+
+| UI event | Handler | Description |
+| --- | --- | --- |
+| Validate command | `ValidateLibrary()` | Runs validation and updates the list. |
+| Error row double-click | `NavigateToSelectedIssue()` | Selects the associated rule in the tree. |
+
+Supporting error-list methods:
+
+| Method | Purpose |
+| --- | --- |
+| `PopulateIssues()` | Converts validation issues into `ListViewItem` rows. |
+| `NavigateToSelectedIssue()` | Reads the selected issue and navigates to the related rule. |
+| `SelectRuleNode(Guid id)` | Selects a rule node by rule ID. |
+| `Flatten(TreeNodeCollection nodes)` | Enumerates tree nodes recursively. |
+
+## Test workflow
+
+| Step | Method | Description |
+| --- | --- | --- |
+| Start rule test | `TestRules()` | Resolves the context type, opens the data dialog, runs evaluation, and opens results. |
+| Browse for test data | `TestDataDialog.BrowseForFile()` | Selects JSON or XML test data. |
+| Load test data | `TestDataDialog.AttemptLoad()` | Deserializes the selected test data. |
+| Deserialize JSON/XML | `TestDataDialog.LoadObjectFromFile()` | Loads a file into the selected context type. |
+| Show results | `TestResultDialog` constructor | Builds the results dialog. |
+| Select result row | `TestResultDialog.ShowDetailForSelection()` | Shows details for the selected match or mismatch. |
+
+## Supporting dialogs
+
+### ContextTypePickerDialog
+
+Used by context and serializer selection flows.
+
+| UI event | Handler | Description |
+| --- | --- | --- |
+| Dialog load | `ApplyFilter()` | Populates the type list. |
+| Filter text changed | `ApplyFilter()` | Filters available types. |
+| Type selection changed | Inline handler | Enables OK when a type is selected. |
+| Type double-click | Inline handler | Accepts the selected type and closes the dialog. |
+
+### TestDataDialog
+
+Used by `TestRules()`.
+
+| UI event | Handler | Description |
+| --- | --- | --- |
+| Browse clicked | `BrowseForFile()` | Selects a JSON/XML file. |
+| Load & Run clicked | `AttemptLoad()` | Loads the selected file and closes the dialog on success. |
+
+### TestResultDialog
+
+Used after `TestRules()` evaluates rules.
+
+| UI event | Handler | Description |
+| --- | --- | --- |
+| Result row selection changed | `ShowDetailForSelection()` | Shows detailed result diagnostics. |
+| Dialog shown | Inline `Shown` handler | Sets splitter distance and selects the first result. |
+| Close clicked | Button `DialogResult.OK` | Closes the dialog. |
+
+## Persistence methods
+
+| Method | Description |
+| --- | --- |
+| `NewLibrary()` | Creates a new in-memory library. |
+| `OpenLibrary()` | Loads a library JSON file from disk. |
+| `SaveLibrary()` | Saves to the current file path or delegates to Save As. |
+| `SaveLibraryAs()` | Prompts for a path and saves. |
+| `SaveTo(string path)` | Serializes the library and updates saved state. |
+| `ConfirmDiscardChanges()` | Prompts before losing unsaved changes. |
+| `UpdateWindowTitle()` | Shows dirty state and current file name. |
+
+## Status and utility methods
+
+| Method | Description |
+| --- | --- |
+| `UpdateCountsAndStatus(string status)` | Updates context count, rule count, library name, and ready text. |
+| `UpdateSelectionInfoPanel()` | Refreshes the properties panel for the current selection. |
+| `SafeFileName()` | Produces a file-safe library name. |
+| `NullIfWhiteSpace()` | Converts blank strings to null. |
+| `NextNumberedName()` | Generates unique default names. |
+| `MenuItem()` | Creates and wires a menu item. |
+| `ToolButton()` | Creates and wires a command strip button. |
+| `BuildImages()` | Populates image lists. |
+| `SeverityIcon()` | Draws severity icons. |
+| `MakeIcon()` | Draws toolbar/tree icons. |
+| `DrawPlus()` | Draws plus overlays for icons.
