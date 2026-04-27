@@ -3,8 +3,8 @@ using NAIware.Rules.Models;
 namespace NAIware.Rules.Processing;
 
 /// <summary>
-/// Resolves a <see cref="RuleContext"/> by matching the input object's
-/// <see cref="Type.FullName"/> against <see cref="RuleContext.QualifiedTypeName"/>.
+    /// Resolves a <see cref="RuleContext"/> by matching the input object's assembly-qualified
+    /// name or full name against <see cref="RuleContext.QualifiedTypeName"/>.
 /// Supports exact match and base type / interface traversal.
 /// </summary>
 public class ReflectionRuleContextResolver : IRuleContextResolver
@@ -26,13 +26,19 @@ public class ReflectionRuleContextResolver : IRuleContextResolver
         Type inputType = inputObject.GetType();
 
         // Exact match first
-        RuleContext? context = _library.FindContextByTypeName(inputType.FullName!);
+        RuleContext? context = _library.FindContextByTypeName(inputType.AssemblyQualifiedName ?? inputType.FullName!);
+        if (context is not null) return context;
+
+        context = _library.FindContextByTypeName(inputType.FullName!);
         if (context is not null) return context;
 
         // Walk base types
         Type? current = inputType.BaseType;
         while (current is not null && current != typeof(object))
         {
+            context = _library.FindContextByTypeName(current.AssemblyQualifiedName ?? current.FullName!);
+            if (context is not null) return context;
+
             context = _library.FindContextByTypeName(current.FullName!);
             if (context is not null) return context;
             current = current.BaseType;
@@ -41,6 +47,9 @@ public class ReflectionRuleContextResolver : IRuleContextResolver
         // Check interfaces
         foreach (Type iface in inputType.GetInterfaces())
         {
+            context = _library.FindContextByTypeName(iface.AssemblyQualifiedName ?? iface.FullName!);
+            if (context is not null) return context;
+
             context = _library.FindContextByTypeName(iface.FullName!);
             if (context is not null) return context;
         }

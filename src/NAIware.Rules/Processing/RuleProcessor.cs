@@ -52,14 +52,20 @@ public class RuleProcessor : IRuleProcessor
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        // 1. Resolve context from input object
-        RuleContext context = _resolver.Resolve(request.InputObject)
-            ?? throw new InvalidOperationException(
-                $"No rule context found for type '{request.InputObject.GetType().FullName}'. " +
-                "Ensure a RuleContext with a matching QualifiedTypeName is registered in the library.");
+        RuleContext? context = _resolver.Resolve(request.InputObject);
+        if (context is null)
+        {
+            var result = CreateResult(string.Empty, request);
+            AddError(result, new RuleEvaluationError(
+                "RULE_CONTEXT_NOT_FOUND",
+                $"No rule context found for type '{request.InputObject.GetType().FullName}'. Ensure a RuleContext with a matching QualifiedTypeName is registered in the library."));
+            return result;
+        }
 
         // 2. Determine which expressions to evaluate
-        IEnumerable<RuleExpression> expressions = ResolveExpressions(context, request.CategoryName);
+        RuleEvaluationResult evaluationResult = CreateResult(context.Name, request);
+        IEnumerable<RuleExpression> expressions = ResolveExpressions(context, request, evaluationResult);
+        if (evaluationResult.Status == RuleEvaluationStatus.Failed) return evaluationResult;
 
         // 3. Extract parameters from the input object
         var factory = new ParameterFactory();
@@ -67,42 +73,89 @@ public class RuleProcessor : IRuleProcessor
         Parameters runtimeParams = extractedParams ?? new Parameters();
 
         // 4. Evaluate each expression individually and collect results
-        var result = new RuleEvaluationResult(context.Name, request.CategoryName, _library?.Name, _library?.Version ?? 0);
-
         foreach (RuleExpression ruleExpression in expressions)
         {
-            var expressionResult = EvaluateExpression(
-                ruleExpression,
-                runtimeParams,
-                request.IncludeDiagnostics);
+            try
+            {
+                var expressionResult = EvaluateExpression(
+                    ruleExpression,
+                    runtimeParams,
+                    request.IncludeDiagnostics);
 
-            if (expressionResult.Matched)
-                result.Matches.Add(expressionResult);
-            else
-                result.Mismatches.Add(expressionResult);
+                if (expressionResult.Matched)
+                    evaluationResult.Matches.Add(expressionResult);
+                else
+                    evaluationResult.Mismatches.Add(expressionResult);
+            }
+            catch (Exception ex) when (request.ExecutionMode != RuleExecutionMode.Strict)
+            {
+                AddError(evaluationResult, new RuleEvaluationError(
+                    "RULE_EXPRESSION_EVALUATION_FAILED",
+                    ex.Message,
+                    context.Name,
+                    request.CategoryName,
+                    ruleExpression.Identity));
+            }
         }
 
-        return result;
+        return evaluationResult;
     }
 
-    private static IEnumerable<RuleExpression> ResolveExpressions(RuleContext context, string? categoryName)
+    private RuleEvaluationResult CreateResult(string contextName, RuleEvaluationRequest request)
     {
+        return new RuleEvaluationResult(contextName, request.CategoryName, _library?.Name, _library?.Version ?? 0, _library?.SnapshotIdentity ?? Guid.Empty)
+        {
+            ExecutionMode = request.ExecutionMode,
+            CategoryExecutionMode = request.CategoryExecutionMode
+        };
+    }
+
+    private static IEnumerable<RuleExpression> ResolveExpressions(RuleContext context, RuleEvaluationRequest request, RuleEvaluationResult result)
+    {
+        string? categoryName = request.CategoryName;
         if (string.IsNullOrEmpty(categoryName))
         {
-            // No category specified — evaluate all active expressions in the context
-            return context.Expressions.Where(e => e.IsActive);
+            // No category specified — evaluate expressions in the context.
+            return request.IncludeInactiveRules ? context.Expressions : context.Expressions.Where(e => e.IsActive);
         }
 
         RuleCategory? category = context.FindCategoryByName(categoryName);
         if (category is null)
         {
-            throw new InvalidOperationException(
-                $"Rule category '{categoryName}' not found in context '{context.Name}'.");
+            AddError(result, new RuleEvaluationError(
+                "RULE_CATEGORY_NOT_FOUND",
+                $"Rule category '{categoryName}' not found in context '{context.Name}'.",
+                context.Name,
+                categoryName));
+            return [];
         }
 
-        // Include expressions from nested subcategories so a parent category
-        // selection evaluates the entire subtree.
-        return category.GetAllActiveExpressions();
+        if (category.IsLeaf)
+            return request.IncludeInactiveRules ? category.GetExpressions() : category.GetActiveExpressions();
+
+        if (request.CategoryExecutionMode == RuleCategoryExecutionMode.LeafOnly)
+        {
+            AddError(result, new RuleEvaluationError(
+                "RULE_CATEGORY_NOT_EXECUTABLE",
+                $"Rule category '{categoryName}' is not a leaf category and cannot be executed unless descendant leaf execution is enabled.",
+                context.Name,
+                categoryName));
+            return [];
+        }
+
+        IEnumerable<RuleCategory> leaves = category.EnumerateDescendants()
+            .Where(c => c.IsLeaf)
+            .OrderBy(c => c.Path, StringComparer.Ordinal)
+            .ThenBy(c => c.Identity);
+
+        return leaves.SelectMany(c => request.IncludeInactiveRules ? c.GetExpressions() : c.GetActiveExpressions());
+    }
+
+    private static void AddError(RuleEvaluationResult result, RuleEvaluationError error)
+    {
+        result.Errors.Add(error);
+        result.Succeeded = false;
+        result.Status = result.TotalEvaluated > 0 ? RuleEvaluationStatus.PartiallyCompleted : RuleEvaluationStatus.Failed;
     }
 
     private static RuleExpressionResult EvaluateExpression(

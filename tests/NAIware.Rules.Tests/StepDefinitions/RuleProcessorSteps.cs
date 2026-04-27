@@ -96,6 +96,7 @@ public class RuleProcessorSteps
     }
 
     [When(@"I revise expression ""(.*)"" to ""(.*)"" with note ""(.*)""")]
+    [When("I update expression {string} to {string} with note {string}")]
     public void WhenIReviseExpression(string name, string newExpression, string note)
     {
         var expression = _context.Expressions.Find(e => e.Name == name);
@@ -110,7 +111,7 @@ public class RuleProcessorSteps
         try
         {
             var processor = new RuleProcessor(_library);
-            processor.Evaluate(new RuleEvaluationRequest("some string"));
+            _evaluationResult = processor.Evaluate(new RuleEvaluationRequest("some string"));
         }
         catch (Exception ex)
         {
@@ -161,6 +162,13 @@ public class RuleProcessorSteps
         _library.Version.Should().Be(expectedVersion);
     }
 
+    [Then(@"library should be at version (\d+)")]
+    [Then(@"library version should be (\d+)")]
+    public void ThenLibraryShouldBeAtVersion(int expectedVersion)
+    {
+        _library.Version.Should().Be(expectedVersion);
+    }
+
     [Then(@"expression ""(.*)"" should have (\d+) version history entries")]
     public void ThenExpressionShouldHaveVersionHistoryEntries(string name, int expectedCount)
     {
@@ -172,9 +180,16 @@ public class RuleProcessorSteps
     [Then(@"a context resolution error should be raised")]
     public void ThenAContextResolutionErrorShouldBeRaised()
     {
-        _caughtException.Should().NotBeNull();
-        _caughtException.Should().BeOfType<InvalidOperationException>();
-        _caughtException!.Message.Should().Contain("No rule context found");
+        if (_caughtException is not null)
+        {
+            _caughtException.Should().BeOfType<InvalidOperationException>();
+            _caughtException.Message.Should().Contain("No rule context found");
+            return;
+        }
+
+        _evaluationResult.Should().NotBeNull();
+        _evaluationResult!.Succeeded.Should().BeFalse();
+        _evaluationResult.Errors.Should().Contain(e => e.Code == "RULE_CONTEXT_NOT_FOUND");
     }
 
     private static LoanApplication CreateLoanApplication(int borrowerCount)

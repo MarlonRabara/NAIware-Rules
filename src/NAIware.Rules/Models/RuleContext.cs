@@ -47,7 +47,14 @@ public class RuleContext
     public string QualifiedTypeName { get; set; }
 
     /// <summary>Gets or sets the optional source assembly path used by the editor to resolve the context type.</summary>
-    public string? AssemblyPath { get; set; }
+    public string? SourceAssemblyPath { get; set; }
+
+    /// <summary>Compatibility alias for older editor code. Use <see cref="SourceAssemblyPath"/> for new code.</summary>
+    public string? AssemblyPath
+    {
+        get => SourceAssemblyPath;
+        set => SourceAssemblyPath = value;
+    }
 
     /// <summary>Gets or sets the optional serialized sample file path used to hydrate and preview context data in the editor.</summary>
     public string? SerializedDataPath { get; set; }

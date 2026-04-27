@@ -40,7 +40,7 @@ public sealed class AssemblyTypeDiscoveryService
             .Select(t => new ReflectedTypeInfo
             {
                 DisplayName = string.IsNullOrWhiteSpace(t.Namespace) ? t.Name : $"{t.Namespace}.{t.Name}",
-                FullName = t.FullName ?? t.Name,
+                FullName = t.AssemblyQualifiedName ?? t.FullName ?? t.Name,
                 AssemblyPath = assemblyPath,
                 Type = t
             })
@@ -57,7 +57,9 @@ public sealed class AssemblyTypeDiscoveryService
         if (!string.IsNullOrWhiteSpace(context.AssemblyPath) && File.Exists(context.AssemblyPath))
         {
             Assembly assembly = Assembly.LoadFrom(context.AssemblyPath);
-            Type? resolved = assembly.GetType(context.QualifiedTypeName);
+            Type? resolved = assembly.GetType(context.QualifiedTypeName)
+                ?? assembly.GetTypes().FirstOrDefault(t => string.Equals(t.AssemblyQualifiedName, context.QualifiedTypeName, StringComparison.Ordinal)
+                    || string.Equals(t.FullName, context.QualifiedTypeName, StringComparison.Ordinal));
             if (resolved is not null) return resolved;
         }
 

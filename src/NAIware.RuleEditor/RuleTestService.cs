@@ -36,7 +36,8 @@ public sealed class RuleTestService
 
         // Ensure the in-memory context matches the qualified type name of the hydrated input.
         // The hydrated object's runtime type is the authoritative resolver target.
-        RuleContext? matchingContext = domainLibrary.FindContextByTypeName(inputObject.GetType().FullName!)
+        RuleContext? matchingContext = domainLibrary.FindContextByTypeName(inputObject.GetType().AssemblyQualifiedName ?? inputObject.GetType().FullName!)
+            ?? domainLibrary.FindContextByTypeName(inputObject.GetType().FullName!)
             ?? domainLibrary.FindContextByName(contextDoc.Name);
 
         if (matchingContext is null)
@@ -48,7 +49,7 @@ public sealed class RuleTestService
 
         // Align the resolved context's QualifiedTypeName with the input's actual runtime type
         // so the reflection resolver can match it unambiguously.
-        matchingContext.QualifiedTypeName = inputObject.GetType().FullName!;
+        matchingContext.QualifiedTypeName = inputObject.GetType().AssemblyQualifiedName ?? inputObject.GetType().FullName!;
 
         var processor = new RuleProcessor(domainLibrary);
         var request = new RuleEvaluationRequest(inputObject, categoryName: null, includeDiagnostics);

@@ -884,7 +884,7 @@ public sealed class MainForm : Form
 
             ReflectedTypeInfo selected = picker.SelectedType;
             context.AssemblyPath = selected.AssemblyPath;
-            context.QualifiedTypeName = selected.FullName;
+            context.QualifiedTypeName = selected.Type?.AssemblyQualifiedName ?? selected.FullName;
             if (string.IsNullOrWhiteSpace(context.Name))
                 context.Name = selected.Type?.Name ?? selected.DisplayName;
 

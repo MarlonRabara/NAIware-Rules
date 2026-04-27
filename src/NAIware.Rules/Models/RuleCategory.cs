@@ -47,6 +47,13 @@ public class RuleCategory
     /// <summary>Gets or sets nested subcategories.</summary>
     public List<RuleCategory> Categories { get; set; } = [];
 
+    /// <summary>Gets or sets the persisted identity of the parent category, or null for a root category.</summary>
+    public Guid? ParentCategoryIdentity { get; set; }
+
+    /// <summary>Gets whether this category has no child categories and is directly executable.</summary>
+    [JsonIgnore]
+    public bool IsLeaf => Categories.Count == 0;
+
     /// <summary>Gets nested subcategories.</summary>
     [JsonIgnore]
     public IReadOnlyList<RuleCategory> Subcategories => Categories;
@@ -113,6 +120,7 @@ public class RuleCategory
         if (subcategory == this) throw new InvalidOperationException("A category cannot be a subcategory of itself.");
         if (IsDescendantOf(subcategory)) throw new InvalidOperationException("The category move would create a cycle.");
         subcategory.ParentCategory = this;
+        subcategory.ParentCategoryIdentity = Identity;
         if (!Categories.Contains(subcategory)) Categories.Add(subcategory);
     }
 
@@ -122,6 +130,7 @@ public class RuleCategory
         ArgumentNullException.ThrowIfNull(subcategory);
         if (!Categories.Remove(subcategory)) return false;
         subcategory.ParentCategory = null;
+        subcategory.ParentCategoryIdentity = null;
         return true;
     }
 

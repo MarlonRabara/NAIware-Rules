@@ -16,6 +16,8 @@ public class RulesLibrary
         Name = "New Rule Library";
         Description = string.Empty;
         Version = 1;
+        SnapshotIdentity = Guid.NewGuid();
+        State = RulesLibraryState.Draft;
         CreatedUtc = DateTimeOffset.UtcNow;
         SavedUtc = CreatedUtc;
     }
@@ -53,6 +55,24 @@ public class RulesLibrary
     /// <summary>Gets or sets the library-level version number.</summary>
     public int Version { get; set; }
 
+    /// <summary>Gets or sets the prior published snapshot identity, when this version was derived from an earlier version.</summary>
+    public Guid? PreviousVersionIdentity { get; set; }
+
+    /// <summary>Gets or sets the unique identity for this library version snapshot.</summary>
+    public Guid SnapshotIdentity { get; set; }
+
+    /// <summary>Gets or sets when this library version was published.</summary>
+    public DateTimeOffset? PublishedUtc { get; set; }
+
+    /// <summary>Gets or sets the optional change note for this library version.</summary>
+    public string? ChangeNote { get; set; }
+
+    /// <summary>Gets whether this library is no longer an editable draft.</summary>
+    public bool IsPublished => State != RulesLibraryState.Draft;
+
+    /// <summary>Gets or sets the canonical lifecycle state for this library version.</summary>
+    public RulesLibraryState State { get; set; }
+
     /// <summary>Gets or sets the UTC timestamp when the library was created.</summary>
     public DateTimeOffset CreatedUtc { get; set; }
 
@@ -61,6 +81,9 @@ public class RulesLibrary
 
     /// <summary>Gets or sets the rule contexts in this library.</summary>
     public List<RuleContext> Contexts { get; set; } = [];
+
+    /// <summary>Gets or sets optional in-memory history for published library snapshots.</summary>
+    public List<LibraryVersion> Versions { get; set; } = [];
 
     /// <summary>Adds a context to the library.</summary>
     public RuleContext AddContext(string name, string qualifiedTypeName, string description = "")
