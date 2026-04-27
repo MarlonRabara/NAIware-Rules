@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Xml.Serialization;
 
 namespace NAIware.RuleEditor;
@@ -139,7 +140,11 @@ public sealed class TestDataDialog : Form
         {
             ".json" => JsonSerializer.Deserialize(stream, type, new JsonSerializerOptions
             {
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                IncludeFields = true,
+                NumberHandling = JsonNumberHandling.AllowReadingFromString,
+                ReadCommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true
             }) ?? throw new InvalidOperationException("JSON deserialized to null."),
             ".xml" => new XmlSerializer(type).Deserialize(stream)
                 ?? throw new InvalidOperationException("XML deserialized to null."),

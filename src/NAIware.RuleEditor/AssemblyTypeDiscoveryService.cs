@@ -8,6 +8,14 @@ namespace NAIware.RuleEditor;
 /// </summary>
 public sealed class AssemblyTypeDiscoveryService
 {
+    private readonly HashSet<string> _assemblySearchDirectories = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Creates an assembly type discovery service.</summary>
+    public AssemblyTypeDiscoveryService()
+    {
+        AppDomain.CurrentDomain.AssemblyResolve += ResolveAssemblyFromKnownDirectories;
+    }
+
     /// <summary>
     /// Loads the assembly at the specified path and returns all public concrete classes,
     /// ordered by namespace then name.
@@ -20,6 +28,7 @@ public sealed class AssemblyTypeDiscoveryService
         if (string.IsNullOrWhiteSpace(assemblyPath) || !File.Exists(assemblyPath))
             throw new FileNotFoundException("Assembly not found.", assemblyPath);
 
+        TrackAssemblyDirectory(assemblyPath);
         Assembly assembly = Assembly.LoadFrom(assemblyPath);
 
         Type[] exported;
@@ -56,6 +65,7 @@ public sealed class AssemblyTypeDiscoveryService
     {
         if (!string.IsNullOrWhiteSpace(context.AssemblyPath) && File.Exists(context.AssemblyPath))
         {
+            TrackAssemblyDirectory(context.AssemblyPath);
             Assembly assembly = Assembly.LoadFrom(context.AssemblyPath);
             Type? resolved = assembly.GetType(context.QualifiedTypeName)
                 ?? assembly.GetTypes().FirstOrDefault(t => string.Equals(t.AssemblyQualifiedName, context.QualifiedTypeName, StringComparison.Ordinal)
@@ -64,5 +74,26 @@ public sealed class AssemblyTypeDiscoveryService
         }
 
         return Type.GetType(context.QualifiedTypeName);
+    }
+
+    private void TrackAssemblyDirectory(string assemblyPath)
+    {
+        string? directory = Path.GetDirectoryName(assemblyPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+            _assemblySearchDirectories.Add(directory);
+    }
+
+    private Assembly? ResolveAssemblyFromKnownDirectories(object? sender, ResolveEventArgs args)
+    {
+        string assemblyFileName = new AssemblyName(args.Name).Name + ".dll";
+
+        foreach (string directory in _assemblySearchDirectories)
+        {
+            string candidate = Path.Combine(directory, assemblyFileName);
+            if (File.Exists(candidate))
+                return Assembly.LoadFrom(candidate);
+        }
+
+        return null;
     }
 }

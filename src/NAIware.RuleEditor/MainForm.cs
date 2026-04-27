@@ -12,7 +12,7 @@ namespace NAIware.RuleEditor;
 /// in the center, properties on the right, and a Visual Studio-style error list
 /// at the bottom.
 /// </summary>
-public sealed class MainForm : Form
+public sealed partial class MainForm : Form
 {
     private readonly AssemblyTypeDiscoveryService _typeDiscovery = new();
     private readonly IntelliSenseService _intelliSense;
@@ -170,23 +170,8 @@ public sealed class MainForm : Form
         _intelliSense = new IntelliSenseService(_typeDiscovery);
         _validator = new RuleValidationService(_intelliSense);
 
-        Text = "NAIware Rule Editor";
-        Width = 1500;
-        Height = 980;
-        StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(1100, 720);
-        KeyPreview = true;
-
-        BuildImages();
-        _ruleTree.ImageList = _treeImages;
-        _errorList.SmallImageList = _issueImages;
-        _severityComboBox.Items.AddRange(["Info", "Warning", "Error"]);
-        _severityComboBox.SelectedItem = "Error";
-
-        Controls.Add(BuildShell());
-        Controls.Add(BuildCommandStrip());
-        Controls.Add(BuildMenu());
-        Controls.Add(BuildStatusBar());
+        InitializeComponent();
+        BuildFormLayout();
 
         _ruleTree.AfterSelect += (_, _) => BindSelection();
         _ruleTree.NodeMouseClick += (_, e) =>
@@ -211,6 +196,20 @@ public sealed class MainForm : Form
         CreateMockupSampleLibrary();
         RefreshTree();
         UpdateCountsAndStatus("Ready");
+    }
+
+    private void BuildFormLayout()
+    {
+        BuildImages();
+        _ruleTree.ImageList = _treeImages;
+        _errorList.SmallImageList = _issueImages;
+        _severityComboBox.Items.AddRange(["Info", "Warning", "Error"]);
+        _severityComboBox.SelectedItem = "Error";
+
+        Controls.Add(BuildShell());
+        Controls.Add(BuildCommandStrip());
+        Controls.Add(BuildMenu());
+        Controls.Add(BuildStatusBar());
     }
 
     private MenuStrip BuildMenu()
@@ -346,8 +345,8 @@ public sealed class MainForm : Form
         _editorAndPropsSplit = editorAndProps;
 
         top.Panel1.Controls.Add(BuildLibraryPanel());
-        editorAndProps.Panel1.Controls.Add(BuildPropertiesPanel());
-        editorAndProps.Panel2.Controls.Add(BuildEditorPanel());
+        editorAndProps.Panel1.Controls.Add(BuildEditorPanel());
+        editorAndProps.Panel2.Controls.Add(BuildPropertiesPanel());
         top.Panel2.Controls.Add(editorAndProps);
 
         root.Panel1.Controls.Add(top);
@@ -365,7 +364,7 @@ public sealed class MainForm : Form
         {
             ConfigureSplit(root, panel1MinSize: 0, panel2MinSize: 165, preferredDistance: root.Height - 360);
             ConfigureSplit(top, panel1MinSize: 260, panel2MinSize: 500, preferredDistance: 410);
-            ConfigureSplit(editorAndProps, panel1MinSize: 250, panel2MinSize: 420, preferredDistance: 360);
+            ConfigureSplit(editorAndProps, panel1MinSize: 420, panel2MinSize: 250, preferredDistance: editorAndProps.Width - 360);
         }
 
         static void ConfigureSplit(SplitContainer split, int panel1MinSize, int panel2MinSize, int preferredDistance)
@@ -404,7 +403,7 @@ public sealed class MainForm : Form
     private void UpdateEditorVisibility()
     {
         if (_editorAndPropsSplit is null) return;
-        _editorAndPropsSplit.Panel2Collapsed = _ruleTree.SelectedNode?.Tag is not RuleExpression;
+        _editorAndPropsSplit.Panel1Collapsed = _ruleTree.SelectedNode?.Tag is not RuleExpression;
     }
 
     private void ShowPropertiesView(string title, Control view)
@@ -1030,7 +1029,7 @@ public sealed class MainForm : Form
         }
 
         Assembly serializerAssembly = Assembly.LoadFrom(context.SerializerAssemblyPath);
-        Type serializerType = serializerAssembly.GetType(context.SerializerQualifiedTypeName)
+        Type serializerType = ResolveTypeFromAssembly(serializerAssembly, context.SerializerQualifiedTypeName)
             ?? throw new InvalidOperationException($"Serializer type '{context.SerializerQualifiedTypeName}' could not be resolved.");
 
         MethodInfo deserializeMethod = serializerType.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public)
@@ -1051,6 +1050,13 @@ public sealed class MainForm : Form
         }
 
         return result;
+    }
+
+    private static Type? ResolveTypeFromAssembly(Assembly assembly, string typeName)
+    {
+        return assembly.GetType(typeName)
+            ?? assembly.GetTypes().FirstOrDefault(t => string.Equals(t.AssemblyQualifiedName, typeName, StringComparison.Ordinal)
+                || string.Equals(t.FullName, typeName, StringComparison.Ordinal));
     }
 
     private void PopulateObjectGraph(string rootName, object root)
