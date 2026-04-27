@@ -570,9 +570,10 @@ public sealed partial class MainForm : Form
 
     private Control BuildContextPropertiesView()
     {
-        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0) };
+        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(0, 8, 0, 0) };
+        var panel = new Panel { Dock = DockStyle.Top, Height = 760 };
 
-        var graphGroup = new GroupBox { Text = "Object Graph", Dock = DockStyle.Fill, Padding = new Padding(10, 18, 10, 10) };
+        var graphGroup = new GroupBox { Text = "Object Graph", Dock = DockStyle.Top, Height = 360, Padding = new Padding(10, 18, 10, 10) };
         _contextObjectGraphTreeView.BorderStyle = BorderStyle.FixedSingle;
         graphGroup.Controls.Add(_contextObjectGraphTreeView);
         graphGroup.Controls.Add(_contextObjectGraphLabel);
@@ -599,7 +600,8 @@ public sealed partial class MainForm : Form
         panel.Controls.Add(dataGroup);
         panel.Controls.Add(identityGroup);
         panel.Controls.Add(assemblyGroup);
-        return panel;
+        scroll.Controls.Add(panel);
+        return scroll;
     }
 
     private static TableLayoutPanel CreateContextFieldTable(int rowCount, bool includeButtonColumn)
