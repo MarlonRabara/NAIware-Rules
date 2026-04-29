@@ -1030,7 +1030,7 @@ public sealed partial class MainForm : Form
             throw new FileNotFoundException("Serializer assembly not found.", context.SerializerAssemblyPath);
         }
 
-        Assembly serializerAssembly = Assembly.LoadFrom(context.SerializerAssemblyPath);
+        Assembly serializerAssembly = _typeDiscovery.LoadAssembly(context.SerializerAssemblyPath);
         Type serializerType = ResolveTypeFromAssembly(serializerAssembly, context.SerializerQualifiedTypeName)
             ?? throw new InvalidOperationException($"Serializer type '{context.SerializerQualifiedTypeName}' could not be resolved.");
 
