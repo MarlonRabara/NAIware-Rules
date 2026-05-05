@@ -1,0 +1,134 @@
+{
+  "docAnalysisResults": {
+    "metadata": {
+      "id": "f9b81f60-1a89-47f4-92f2-33e03483ae9c",
+      "sourceFileName": "4013790565-DOT.pdf",
+      "documentType": "mortgage-statement",
+      "documentSubtype": "servicing",
+      "formVersion": null
+    },
+    "fields": {
+      "sourceFileName": "4013790565-DOT.pdf",
+      "documentType": "mortgage-statement",
+      "documentSubtype": "servicing",
+      "formVersion": null,
+      "ocrProvider": "pdftoppm+tesseract",
+      "borrowerName": "right will not be exercised unreasonably."
+    },
+    "capturedFields": {
+      "field001": {
+        "label": "After Recording Retum To",
+        "value": "Te ORIG \"RUE 4 WD"
+      },
+      "field002": {
+        "label": "This instrument was prepared by",
+        "value": ". ."
+      },
+      "field003": {
+        "label": "MIN",
+        "value": "100602370003433668"
+      },
+      "field004": {
+        "label": "SIS Telephone #",
+        "value": "(888) 679-MERS"
+      },
+      "field005": {
+        "label": "SOUTH CAROLINA",
+        "value": "Single Family - Fannie Mae/Freddie Mac UNIFORM INSTRUMENT = (MERS) I Form 3041 07/2021"
+      },
+      "field006": {
+        "label": "Parcel ID Number",
+        "value": "240-05-01-097"
+      },
+      "field007": {
+        "label": "BORROWER REPRESENTS, WARRANTS, COVENANTS, AND AGREES that",
+        "value": "(i) Borrower lawfully owns and possesses the"
+      },
+      "field008": {
+        "label": "SOUTH CAROLINA",
+        "value": "Single Family - Fannie Mae/Freddie Mac UNIFORM INSTRUMENT = (MERS) Form 3044 07/2021"
+      },
+      "field009": {
+        "label": "idsDoc",
+        "value": "93285"
+      },
+      "field010": {
+        "label": "outstanding Periodic Payment, as follows",
+        "value": "first to interest and then to principal due under the Note, and finally to Escrow Items. If all"
+      },
+      "field011": {
+        "label": "idsDoc",
+        "value": "93288"
+      },
+      "field012": {
+        "label": "SOUTH CAROLINA",
+        "value": "Single Family - Fannie MaelFreddie Mac UNIFORM INSTRUMENT = (MERS) Form 3041 07/2021"
+      },
+      "field013": {
+        "label": "SOUTH CAROLINA",
+        "value": "Single Family - Fannie Mae/Freddie Mac UNIFORM INSTRUMENT â€” (MERS) Form 3041 07/2021"
+      },
+      "field014": {
+        "label": "IdsDoc",
+        "value": "93286"
+      },
+      "field015": {
+        "label": "SOUTH CAROLINA",
+        "value": "Single Family - Fannie Mae/Freddie Mac UNIFORM INSTRUMENT â€” (MERS) Form 3041 07/2021"
+      },
+      "field016": {
+        "label": "SOUTH CAROLINA",
+        "value": "Single Family-Fannie MaciFreddie Mac UNIFORMINSTRUMENT (MERS)SSSSS=S*S*~*~*~S~SÂ«Ã© or GATÂ«OT ILO"
+      },
+      "field017": {
+        "label": "As used in this Security Instrument",
+        "value": "(a) words in the singular will mean and include the plural! and vice versa; (b) the word \"mayâ€"
+      },
+      "field018": {
+        "label": "SOUTH CAROLINA",
+        "value": "Single Family - Fannie Mae/Freddie Mac UNIFORM INSTRUMENT â€” (MERS) Form 3041 07/2021"
+      },
+      "field019": {
+        "label": "but not limited to",
+        "value": "(i) reasonable attorneysâ€™ fees and costs; (ii) property inspection and valuation fees; and (iii) other fees incurred to"
+      },
+      "field020": {
+        "label": "Lender",
+        "value": "(aaa) cash; (bbb) money order; (ccc) certified check, bank check, treasurer's check, or cashierâ€™s check, provided any such check"
+      },
+      "field021": {
+        "label": "idsDoc",
+        "value": "93285"
+      },
+      "field022": {
+        "label": "Borrower acknowledges and represents to Lender that Borrower",
+        "value": "(a) expressly consented and intended to sign the electronic Note using"
+      },
+      "field023": {
+        "label": "this Section 26, including, but not limited to",
+        "value": "(i) reasonable attorneysâ€™ fees and costs; (ii) property inspection and valuation fees; and (iii)"
+      },
+      "field024": {
+        "label": "SOUTH CAROLINA",
+        "value": "Single Family - Fannie Mae/Freddie Mac UNIFORM INSTRUMENT = (MERS) Form 3041 07/2021"
+      },
+      "field025": {
+        "label": "My Commission Expires",
+        "value": "CA Zl"
+      },
+      "field026": {
+        "label": "Loan originator (Organization)",
+        "value": "Northpointe Bank; NMLS #: 447490"
+      },
+      "field027": {
+        "label": "Loan originator (Individual)",
+        "value": "Timothy Paul Tusing; NMLS #: 730107"
+      }
+    }
+  },
+  "docValidationSummary": {
+    "requiresReview": false,
+    "threshold": 0.82,
+    "issues": []
+  }
+}

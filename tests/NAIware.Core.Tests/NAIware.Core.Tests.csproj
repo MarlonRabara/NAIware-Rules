@@ -10,6 +10,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\resources\Mortgage.Model.dll" Link="Mortgage.Model.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageReference Include="Reqnroll" Version="3.0.0" />
     <PackageReference Include="Reqnroll.xUnit" Version="3.0.0" />
