@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace docAnalysis.Models;
+namespace DocumentAnalysis.Models;
 
 /// <summary>
 /// Root object for document analysis output. This can contain the extracted document analysis results,

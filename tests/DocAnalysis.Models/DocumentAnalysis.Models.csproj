@@ -5,8 +5,8 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>docAnalysis.Models</RootNamespace>
-    <AssemblyName>docAnalysis.Models</AssemblyName>
+    <RootNamespace>DocumentAnalysis.Models</RootNamespace>
+    <AssemblyName>DocumentAnalysis.Models</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace docAnalysis.Models;
+namespace DocumentAnalysis.Models;
 
 /// <summary>
 /// Represents a field captured from the document, typically from OCR or form-recognition output.

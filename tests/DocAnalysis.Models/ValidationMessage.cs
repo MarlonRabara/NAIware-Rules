@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace docAnalysis.Models;
+namespace DocumentAnalysis.Models;
 
 /// <summary>
 /// A validation error, warning, or informational message.

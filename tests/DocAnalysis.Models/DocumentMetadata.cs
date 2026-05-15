@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace docAnalysis.Models;
+namespace DocumentAnalysis.Models;
 
 /// <summary>
 /// High-level document metadata identified during analysis.

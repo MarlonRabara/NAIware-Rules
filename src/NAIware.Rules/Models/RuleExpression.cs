@@ -55,14 +55,6 @@ public class RuleExpression
     /// <summary>Gets or sets the current raw expression text.</summary>
     public string Expression { get; set; }
 
-    /// <summary>Compatibility member retained for older callers. Rule expressions are not independently versioned; use RulesLibrary.Version.</summary>
-    [JsonIgnore]
-    public int Version { get; private set; } = 0;
-
-    /// <summary>Compatibility member retained for older callers. Rule expressions do not maintain version history.</summary>
-    [JsonIgnore]
-    public IReadOnlyList<ExpressionVersion> Versions => Array.Empty<ExpressionVersion>();
-
     /// <summary>Compatibility method retained for older callers. Updates the expression text without creating expression-level history.</summary>
     public void Revise(string newExpression, string? changeNote = null) => Expression = newExpression;
 

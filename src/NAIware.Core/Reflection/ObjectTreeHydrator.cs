@@ -8,113 +8,164 @@ namespace NAIware.Core.Reflection;
 /// Builds a reflected property tree for a root object instance or root type.
 /// Intended for IntelliSense, validation, and parameter discovery.
 /// </summary>
+/// <remarks>
+/// <para>
+/// The returned tree is strongly typed: every node value is a
+/// <see cref="ReflectedPropertyNode"/>. The root node carries <see cref="ReflectedPropertyNode.IsRoot"/>
+/// set to <see langword="true"/> and its <see cref="ReflectedPropertyNode.Name"/> / <see cref="ReflectedPropertyNode.Path"/>
+/// are taken from the supplied instance name.
+/// </para>
+/// <para>
+/// Cycles are detected on a path-scoped basis: revisiting the same type within an
+/// ancestor chain is skipped. Sibling branches may still traverse the same type.
+/// </para>
+/// </remarks>
 public static class ObjectTreeHydrator
 {
-    private const int DefaultMaxDepth = 8;
-
     /// <summary>
     /// Builds a reflected property tree for the specified object instance.
     /// </summary>
-    /// <param name='instance'>The object instance to inspect.</param>
-    /// <param name='instanceName'>The display name and root path for the instance.</param>
-    /// <param name='maxDepth'>The maximum property depth to traverse.</param>
-    /// <returns>A reflected property tree rooted at the specified instance.</returns>
-    public static Tree<TreeNode, object> Create(
-        object instance,
+    /// <param name="rootObject">The object instance to inspect.</param>
+    /// <param name="instanceName">The display name and root path for the instance.</param>
+    /// <param name="maxDepth">The maximum property depth to traverse. Must be at least one.</param>
+    /// <returns>A strongly typed reflected property tree rooted at the specified instance.</returns>
+    public static Tree<PropertyTreeNode, ReflectedPropertyNode> Create(
+        object rootObject,
         string instanceName,
-        int maxDepth = DefaultMaxDepth)
+        int maxDepth = ObjectTreeHydratorOptions.DefaultMaxDepth)
     {
-        ArgumentNullException.ThrowIfNull(instance);
-
-        return Create(instance.GetType(), instanceName, maxDepth);
+        ArgumentNullException.ThrowIfNull(rootObject);
+        return Create(rootObject.GetType(), rootObject, instanceName, new ObjectTreeHydratorOptions { MaxDepth = maxDepth });
     }
 
     /// <summary>
-    /// Builds a reflected property tree for the specified root type.
+    /// Builds a reflected property tree for the specified root type and optional instance.
     /// </summary>
-    /// <param name='rootType'>The root type to inspect.</param>
-    /// <param name='instanceName'>The display name and root path for the type.</param>
-    /// <param name='maxDepth'>The maximum property depth to traverse.</param>
-    /// <returns>A reflected property tree rooted at the specified type.</returns>
-    public static Tree<TreeNode, object> Create(
+    /// <param name="rootType">The root type to inspect.</param>
+    /// <param name="rootObject">The optional root object instance. When supplied it must be assignable to <paramref name="rootType"/>.</param>
+    /// <param name="instanceName">The display name and root path for the type.</param>
+    /// <param name="maxDepth">The maximum property depth to traverse. Must be at least one.</param>
+    /// <returns>A strongly typed reflected property tree rooted at the specified type.</returns>
+    public static Tree<PropertyTreeNode, ReflectedPropertyNode> Create(
         Type rootType,
+        object? rootObject,
         string instanceName,
-        int maxDepth = DefaultMaxDepth)
+        int maxDepth = ObjectTreeHydratorOptions.DefaultMaxDepth)
+        => Create(rootType, rootObject, instanceName, new ObjectTreeHydratorOptions { MaxDepth = maxDepth });
+
+    /// <summary>
+    /// Builds a reflected property tree using the supplied options.
+    /// </summary>
+    /// <param name="rootType">The root type to inspect.</param>
+    /// <param name="rootObject">The optional root object instance. When supplied it must be assignable to <paramref name="rootType"/>.</param>
+    /// <param name="instanceName">The display name and root path for the type.</param>
+    /// <param name="options">The hydrator options.</param>
+    /// <returns>A strongly typed reflected property tree rooted at the specified type.</returns>
+    public static Tree<PropertyTreeNode, ReflectedPropertyNode> Create(
+        Type rootType,
+        object? rootObject,
+        string instanceName,
+        ObjectTreeHydratorOptions options)
     {
         ArgumentNullException.ThrowIfNull(rootType);
+        ArgumentNullException.ThrowIfNull(options);
 
         if (string.IsNullOrWhiteSpace(instanceName))
         {
             throw new ArgumentException("Instance name is required.", nameof(instanceName));
         }
 
-        var rootValue = new ReflectedPropertyNode(
-            name: instanceName,
-            path: instanceName,
-            type: rootType,
-            propertyInfo: null,
-            isRoot: true,
-            isCollection: false,
-            isCollectionItem: false);
+        if (options.MaxDepth < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options.MaxDepth, "MaxDepth must be at least 1.");
+        }
 
-        var rootNode = new TreeNode(rootValue);
-        var tree = new Tree<TreeNode, object>
+        if (options.MaxNodes < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options.MaxNodes, "MaxNodes must be at least 1.");
+        }
+
+        if (rootObject is not null && !rootType.IsInstanceOfType(rootObject))
+        {
+            throw new ArgumentException(
+                $"rootObject of type '{rootObject.GetType().FullName}' is not assignable to rootType '{rootType.FullName}'.",
+                nameof(rootObject));
+        }
+
+        var rootValue = ReflectedPropertyNode.ForRoot(instanceName, rootType);
+        var rootNode = new PropertyTreeNode(rootValue);
+
+        var tree = new Tree<PropertyTreeNode, ReflectedPropertyNode>
         {
             Root = rootNode
         };
 
-        var context = new TreeHydrationContext(maxDepth);
-        context.Push(rootType);
+        var context = new TreeHydrationContext(options);
+        context.IncrementNodeCount();
 
-        AppendProperties(rootNode, rootType, instanceName, context, depth: 0);
-
-        context.Pop();
+        using (context.Enter(rootType))
+        {
+            AppendProperties(rootNode, rootType, instanceName, context, depth: 0);
+        }
 
         return tree;
     }
 
     private static void AppendProperties(
-        TreeNode parentNode,
+        PropertyTreeNode parentNode,
         Type parentType,
         string parentPath,
         TreeHydrationContext context,
         int depth)
     {
-        if (depth >= context.MaxDepth)
+        if (depth >= context.Options.MaxDepth || context.IsBudgetExhausted)
         {
             return;
         }
 
-        foreach (var property in GetReadableProperties(parentType))
+        foreach (var property in GetReadableProperties(parentType, context.Options))
         {
+            if (context.IsBudgetExhausted)
+            {
+                return;
+            }
+
             Type propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-            bool isCollection = TryGetCollectionItemType(propertyType, out var itemType);
+            bool isCollection = TryGetCollectionItemType(propertyType, out Type? itemType);
 
             string propertyPath = $"{parentPath}.{property.Name}";
 
-            var propertyValue = new ReflectedPropertyNode(
+            var propertyValue = ReflectedPropertyNode.ForProperty(
                 name: property.Name,
                 path: propertyPath,
                 type: propertyType,
                 propertyInfo: property,
-                isRoot: false,
-                isCollection: isCollection,
-                isCollectionItem: false);
+                isCollection: isCollection);
 
-            var propertyNode = new TreeNode(parentNode, propertyValue);
-            parentNode.Nodes.Add(propertyNode);
+            var propertyNode = new PropertyTreeNode(propertyValue);
+            parentNode.AddChild(propertyNode);
+            context.IncrementNodeCount();
 
-            if (IsLeafType(propertyType))
+            if (IsLeafType(propertyType, context.Options))
             {
                 continue;
             }
 
             if (isCollection && itemType is not null)
             {
+                Type normalizedItemType = Nullable.GetUnderlyingType(itemType) ?? itemType;
+
+                // Skip synthetic child for collections of leaf types — they add noise
+                // without surfacing additional structure.
+                if (IsLeafType(normalizedItemType, context.Options))
+                {
+                    continue;
+                }
+
                 AppendCollectionItemNode(
                     propertyNode,
-                    itemType,
-                    $"{propertyPath}[0]",
+                    normalizedItemType,
+                    propertyPath,
                     context,
                     depth + 1);
 
@@ -123,6 +174,8 @@ public static class ObjectTreeHydrator
 
             if (propertyType.IsAbstract || propertyType.IsInterface)
             {
+                // Interface/abstract property types are recorded but not recursed:
+                // we cannot know which concrete implementation a consumer will supply.
                 continue;
             }
 
@@ -131,207 +184,261 @@ public static class ObjectTreeHydrator
                 continue;
             }
 
-            context.Push(propertyType);
-            AppendProperties(propertyNode, propertyType, propertyPath, context, depth + 1);
-            context.Pop();
+            using (context.Enter(propertyType))
+            {
+                AppendProperties(propertyNode, propertyType, propertyPath, context, depth + 1);
+            }
         }
     }
 
     private static void AppendCollectionItemNode(
-        TreeNode collectionNode,
+        PropertyTreeNode collectionNode,
         Type itemType,
-        string itemPath,
+        string collectionPath,
         TreeHydrationContext context,
         int depth)
     {
-        itemType = Nullable.GetUnderlyingType(itemType) ?? itemType;
+        string itemSegment = context.Options.CollectionItemSegment;
+        string itemPath = $"{collectionPath}{itemSegment}";
 
-        var itemValue = new ReflectedPropertyNode(
-            name: "[0]",
-            path: itemPath,
-            type: itemType,
-            propertyInfo: null,
-            isRoot: false,
-            isCollection: false,
-            isCollectionItem: true);
+        var itemValue = ReflectedPropertyNode.ForCollectionItem(itemSegment, itemPath, itemType);
+        var itemNode = new PropertyTreeNode(itemValue);
+        collectionNode.AddChild(itemNode);
+        context.IncrementNodeCount();
 
-        var itemNode = new TreeNode(collectionNode, itemValue);
-        collectionNode.Nodes.Add(itemNode);
-
-        if (IsLeafType(itemType) ||
-            itemType.IsAbstract ||
+        if (itemType.IsAbstract ||
             itemType.IsInterface ||
             context.IsInCurrentPath(itemType))
         {
             return;
         }
 
-        context.Push(itemType);
-        AppendProperties(itemNode, itemType, itemPath, context, depth + 1);
-        context.Pop();
+        using (context.Enter(itemType))
+        {
+            AppendProperties(itemNode, itemType, itemPath, context, depth);
+        }
     }
 
-    private static IEnumerable<PropertyInfo> GetReadableProperties(Type type)
+    private static IEnumerable<PropertyInfo> GetReadableProperties(Type type, ObjectTreeHydratorOptions options)
     {
-        return type
-            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-            .Where(p =>
-                p.CanRead &&
-                p.GetIndexParameters().Length == 0);
+        // Walk the type hierarchy explicitly so that we can de-duplicate properties
+        // hidden via the `new` keyword on a derived type (most-derived wins).
+        var seen = new Dictionary<string, PropertyInfo>(StringComparer.Ordinal);
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly;
+
+        for (Type? current = type; current is not null && current != typeof(object); current = current.BaseType)
+        {
+            foreach (var property in current.GetProperties(flags))
+            {
+                if (!property.CanRead || property.GetIndexParameters().Length != 0)
+                {
+                    continue;
+                }
+
+                if (options.PropertyFilter is not null && !options.PropertyFilter(property))
+                {
+                    continue;
+                }
+
+                // Most-derived declaration is encountered first; ignore shadowed base members.
+                if (!seen.ContainsKey(property.Name))
+                {
+                    seen[property.Name] = property;
+                }
+            }
+        }
+
+        // Surface interface-declared properties when the root itself is an interface.
+        if (type.IsInterface)
+        {
+            foreach (var iface in new[] { type }.Concat(type.GetInterfaces()))
+            {
+                foreach (var property in iface.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+                {
+                    if (!property.CanRead || property.GetIndexParameters().Length != 0)
+                    {
+                        continue;
+                    }
+
+                    if (options.PropertyFilter is not null && !options.PropertyFilter(property))
+                    {
+                        continue;
+                    }
+
+                    if (!seen.ContainsKey(property.Name))
+                    {
+                        seen[property.Name] = property;
+                    }
+                }
+            }
+        }
+
+        return seen.Values;
     }
 
     private static bool TryGetCollectionItemType(Type type, out Type? itemType)
     {
         itemType = null;
 
+        // String is enumerable but should be treated as a scalar.
         if (type == typeof(string))
         {
             return false;
         }
 
+        // byte[] is conventionally a binary blob; surface as a collection but the caller
+        // will skip the synthetic item child because byte is a leaf type.
         if (type.IsArray)
         {
             itemType = type.GetElementType();
             return itemType is not null;
         }
 
-        var enumerableType = type
-            .GetInterfaces()
-            .Concat([type])
-            .FirstOrDefault(i =>
-                i.IsGenericType &&
-                i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
-
-        if (enumerableType is null)
+        // Dictionaries: surface the value type as the "item" so consumers see the
+        // meaningful payload instead of KeyValuePair<,>.
+        Type? dictionaryValueType = TryGetDictionaryValueType(type);
+        if (dictionaryValueType is not null)
         {
-            return false;
+            itemType = dictionaryValueType;
+            return true;
         }
 
-        itemType = enumerableType.GetGenericArguments()[0];
-        return true;
+        // Generic IEnumerable<T>: pick the most specific T when multiple are implemented.
+        Type? bestEnumerable = null;
+        foreach (var iface in new[] { type }.Concat(type.GetInterfaces()))
+        {
+            if (!iface.IsGenericType || iface.GetGenericTypeDefinition() != typeof(IEnumerable<>))
+            {
+                continue;
+            }
+
+            if (bestEnumerable is null)
+            {
+                bestEnumerable = iface;
+                continue;
+            }
+
+            Type currentArg = iface.GetGenericArguments()[0];
+            Type bestArg = bestEnumerable.GetGenericArguments()[0];
+            if (bestArg.IsAssignableFrom(currentArg) && bestArg != currentArg)
+            {
+                bestEnumerable = iface;
+            }
+        }
+
+        if (bestEnumerable is not null)
+        {
+            itemType = bestEnumerable.GetGenericArguments()[0];
+            return true;
+        }
+
+        // Non-generic IEnumerable: mark as collection but treat items as object.
+        if (typeof(IEnumerable).IsAssignableFrom(type))
+        {
+            itemType = typeof(object);
+            return true;
+        }
+
+        return false;
     }
 
-    private static bool IsLeafType(Type type)
+    private static Type? TryGetDictionaryValueType(Type type)
+    {
+        foreach (var iface in new[] { type }.Concat(type.GetInterfaces()))
+        {
+            if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IDictionary<,>))
+            {
+                return iface.GetGenericArguments()[1];
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsLeafType(Type type, ObjectTreeHydratorOptions options)
     {
         type = Nullable.GetUnderlyingType(type) ?? type;
 
-        return type.IsPrimitive ||
-               type.IsEnum ||
-               type == typeof(string) ||
-               type == typeof(decimal) ||
-               type == typeof(DateTime) ||
-               type == typeof(DateTimeOffset) ||
-               type == typeof(Guid) ||
-               type == typeof(TimeSpan);
+        if (options.LeafTypeOverride is not null && options.LeafTypeOverride(type))
+        {
+            return true;
+        }
+
+        if (type.IsPrimitive || type.IsEnum)
+        {
+            return true;
+        }
+
+        return type == typeof(string)
+            || type == typeof(decimal)
+            || type == typeof(DateTime)
+            || type == typeof(DateTimeOffset)
+            || type == typeof(DateOnly)
+            || type == typeof(TimeOnly)
+            || type == typeof(TimeSpan)
+            || type == typeof(Guid)
+            || type == typeof(Uri)
+            || type == typeof(Version);
     }
 
     private sealed class TreeHydrationContext
     {
-        private readonly Stack<Type> _path = new();
+        private readonly Stack<Type> _pathStack = new();
+        private readonly HashSet<Type> _pathSet = new();
+        private int _nodeCount;
 
-        public TreeHydrationContext(int maxDepth)
+        public TreeHydrationContext(ObjectTreeHydratorOptions options)
         {
-            MaxDepth = maxDepth;
+            Options = options;
         }
 
-        public int MaxDepth { get; }
+        public ObjectTreeHydratorOptions Options { get; }
+
+        public bool IsBudgetExhausted => _nodeCount >= Options.MaxNodes;
+
+        public void IncrementNodeCount() => _nodeCount++;
 
         public bool IsInCurrentPath(Type type)
         {
             type = Nullable.GetUnderlyingType(type) ?? type;
-            return _path.Contains(type);
+            return _pathSet.Contains(type);
         }
 
-        public void Push(Type type)
+        public PathScope Enter(Type type)
         {
-            _path.Push(Nullable.GetUnderlyingType(type) ?? type);
+            type = Nullable.GetUnderlyingType(type) ?? type;
+            bool added = _pathSet.Add(type);
+            _pathStack.Push(type);
+            return new PathScope(this, type, added);
         }
 
-        public void Pop()
+        private void Exit(Type type, bool removeFromSet)
         {
-            if (_path.Count > 0)
+            if (_pathStack.Count > 0)
             {
-                _path.Pop();
+                _pathStack.Pop();
+            }
+
+            if (removeFromSet)
+            {
+                _pathSet.Remove(type);
             }
         }
-    }
-}
 
-/// <summary>
-/// Represents one node in a reflected object/property tree.
-/// The root node represents the named object instance. Child nodes represent properties.
-/// </summary>
-public sealed class ReflectedPropertyNode
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref='ReflectedPropertyNode'/> class.
-    /// </summary>
-    /// <param name='name'>The display name for the node.</param>
-    /// <param name='path'>The full property path represented by the node.</param>
-    /// <param name='type'>The reflected type represented by the node.</param>
-    /// <param name='propertyInfo'>The reflected property information, or <see langword='null'/> for synthetic nodes.</param>
-    /// <param name='isRoot'>A value indicating whether this node is the root node.</param>
-    /// <param name='isCollection'>A value indicating whether this node represents a collection property.</param>
-    /// <param name='isCollectionItem'>A value indicating whether this node represents a synthetic collection item.</param>
-    public ReflectedPropertyNode(
-        string name,
-        string path,
-        Type type,
-        PropertyInfo? propertyInfo,
-        bool isRoot,
-        bool isCollection,
-        bool isCollectionItem)
-    {
-        Name = name;
-        Path = path;
-        Type = type;
-        PropertyInfo = propertyInfo;
-        IsRoot = isRoot;
-        IsCollection = isCollection;
-        IsCollectionItem = isCollectionItem;
-    }
+        public readonly struct PathScope : IDisposable
+        {
+            private readonly TreeHydrationContext _context;
+            private readonly Type _type;
+            private readonly bool _removeFromSet;
 
-    /// <summary>
-    /// Gets the display name for the node.
-    /// </summary>
-    public string Name { get; }
+            internal PathScope(TreeHydrationContext context, Type type, bool removeFromSet)
+            {
+                _context = context;
+                _type = type;
+                _removeFromSet = removeFromSet;
+            }
 
-    /// <summary>
-    /// Gets the full property path represented by the node.
-    /// </summary>
-    public string Path { get; }
-
-    /// <summary>
-    /// Gets the reflected type represented by the node.
-    /// </summary>
-    public Type Type { get; }
-
-    /// <summary>
-    /// Gets the reflected property information, or <see langword='null'/> for synthetic nodes.
-    /// </summary>
-    public PropertyInfo? PropertyInfo { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether this node is the root node.
-    /// </summary>
-    public bool IsRoot { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether this node represents a collection property.
-    /// </summary>
-    public bool IsCollection { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether this node represents a synthetic collection item.
-    /// </summary>
-    public bool IsCollectionItem { get; }
-
-    /// <summary>
-    /// Returns a string representation of the reflected property node.
-    /// </summary>
-    /// <returns>The node path and reflected type name.</returns>
-    public override string ToString()
-    {
-        return $"{Path} : {Type.Name}";
+            public void Dispose() => _context.Exit(_type, _removeFromSet);
+        }
     }
 }

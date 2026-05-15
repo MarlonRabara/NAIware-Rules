@@ -21,7 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\NAIware.Core\NAIware.Core.csproj" />
     <ProjectReference Include="..\..\src\NAIware.Rules\NAIware.Rules.csproj" />
-    <ProjectReference Include="..\DocAnalysis.Models\DocAnalysis.Models.csproj" />
+    <ProjectReference Include="..\DocAnalysis.Models\DocumentAnalysis.Models.csproj" />
   </ItemGroup>
 
 </Project>
