@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using NAIware.RuleIntelligence;
 using NAIware.Rules.Runtime;
 
 namespace NAIware.RuleEditor;
@@ -71,7 +72,8 @@ public sealed partial class MainForm : Form
         Width = 320,
         Height = 180,
         Font = new Font("Cascadia Mono, Consolas", 9.25f),
-        IntegralHeight = false
+        IntegralHeight = false,
+        DisplayMember = nameof(RuleCompletionItem.Label)
     };
 
     private readonly TextBox _resultCodeTextBox = new() { Dock = DockStyle.Fill };
@@ -1621,28 +1623,37 @@ public sealed partial class MainForm : Form
         }
     }
 
+    private RuleCompletionResponse? _lastCompletion;
+
     private void ShowIntelliSense()
     {
         RuleContext? context = GetSelectedContext();
-        if (context is null) return;
-
-        string prefix = GetCurrentToken(_expressionTextBox.Text, _expressionTextBox.SelectionStart);
-        if (prefix.Length < 1)
+        if (context is null)
         {
             _intelliSenseListBox.Visible = false;
             return;
         }
 
-        IReadOnlyList<string> suggestions = _intelliSense.GetSuggestions(context, prefix);
-        if (suggestions.Count == 0)
+        RuleCompletionResponse? response = _intelliSense.GetCompletions(
+            context,
+            _expressionTextBox.Text,
+            _expressionTextBox.SelectionStart);
+
+        if (response is null || response.Items.Count == 0)
         {
+            _lastCompletion = null;
             _intelliSenseListBox.Visible = false;
             return;
         }
+
+        _lastCompletion = response;
 
         _intelliSenseListBox.BeginUpdate();
         _intelliSenseListBox.Items.Clear();
-        foreach (string suggestion in suggestions) _intelliSenseListBox.Items.Add(suggestion);
+        foreach (RuleCompletionItem item in response.Items)
+        {
+            _intelliSenseListBox.Items.Add(item);
+        }
         _intelliSenseListBox.SelectedIndex = 0;
         _intelliSenseListBox.EndUpdate();
         _intelliSenseListBox.Location = new Point(70, 36);
@@ -1652,12 +1663,17 @@ public sealed partial class MainForm : Form
 
     private void InsertIntelliSenseSelection()
     {
-        if (!_intelliSenseListBox.Visible || _intelliSenseListBox.SelectedItem is not string suggestion) return;
-        int start = _expressionTextBox.SelectionStart;
-        string token = GetCurrentToken(_expressionTextBox.Text, start);
-        int replaceStart = Math.Max(0, start - token.Length);
-        _expressionTextBox.Text = _expressionTextBox.Text.Remove(replaceStart, token.Length).Insert(replaceStart, suggestion);
-        _expressionTextBox.SelectionStart = replaceStart + suggestion.Length;
+        if (!_intelliSenseListBox.Visible || _intelliSenseListBox.SelectedItem is not RuleCompletionItem item) return;
+        if (_lastCompletion is null) return;
+
+        int start = _lastCompletion.ReplacementStart;
+        int length = _lastCompletion.ReplacementLength;
+        if (start < 0 || start > _expressionTextBox.Text.Length) start = _expressionTextBox.SelectionStart;
+        if (start + length > _expressionTextBox.Text.Length) length = Math.Max(0, _expressionTextBox.Text.Length - start);
+
+        string insertText = item.InsertText;
+        _expressionTextBox.Text = _expressionTextBox.Text.Remove(start, length).Insert(start, insertText);
+        _expressionTextBox.SelectionStart = start + insertText.Length;
         _intelliSenseListBox.Visible = false;
     }
 

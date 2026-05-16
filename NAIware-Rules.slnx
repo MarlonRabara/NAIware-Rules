@@ -6,6 +6,9 @@
   </Folder>
   <Folder Name="/Shared Libraries/">
     <Project Path="src/NAIware.Core/NAIware.Core.csproj" />
+    <Project Path="src/NAIware.RuleIntelligence/NAIware.RuleIntelligence.csproj">
+      <Build Solution="Debug|*" Project="false" />
+    </Project>
     <Project Path="src/NAIware.Rules/NAIware.Rules.csproj" />
   </Folder>
   <Folder Name="/Tests/">
