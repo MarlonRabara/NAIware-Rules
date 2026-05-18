@@ -66,15 +66,8 @@ public sealed partial class MainForm : Form
         BorderStyle = BorderStyle.None
     };
 
-    private readonly ListBox _intelliSenseListBox = new()
-    {
-        Visible = false,
-        Width = 320,
-        Height = 180,
-        Font = new Font("Cascadia Mono, Consolas", 9.25f),
-        IntegralHeight = false,
-        DisplayMember = nameof(RuleCompletionItem.Label)
-    };
+    private readonly IntelliSensePopup _intelliSensePopup = new();
+    private ListBox _intelliSenseListBox => _intelliSensePopup.ListBox;
 
     private readonly TextBox _resultCodeTextBox = new() { Dock = DockStyle.Fill };
     private readonly TextBox _resultMessageTextBox = new() { Dock = DockStyle.Fill };
@@ -483,7 +476,6 @@ public sealed partial class MainForm : Form
         };
         _expressionTextBox.Padding = new Padding(8);
         editorHost.Controls.Add(_expressionTextBox);
-        editorHost.Controls.Add(_intelliSenseListBox);
         editorHost.Controls.Add(lineNumbers);
 
         group.Controls.Add(editorHost);
@@ -793,36 +785,20 @@ public sealed partial class MainForm : Form
     {
         _expressionTextBox.KeyUp += (_, e) =>
         {
-            if (e.KeyCode is Keys.Up or Keys.Down or Keys.Enter or Keys.Escape) return;
+            if (e.KeyCode is Keys.Up or Keys.Down or Keys.PageUp or Keys.PageDown
+                or Keys.Home or Keys.End or Keys.Enter or Keys.Tab or Keys.Escape) return;
             ShowIntelliSense();
         };
-        _expressionTextBox.KeyDown += (_, e) =>
-        {
-            if (!_intelliSenseListBox.Visible) return;
 
-            if (e.KeyCode == Keys.Down)
-            {
-                if (_intelliSenseListBox.SelectedIndex < _intelliSenseListBox.Items.Count - 1)
-                    _intelliSenseListBox.SelectedIndex++;
-                e.SuppressKeyPress = true;
-            }
-            else if (e.KeyCode == Keys.Up)
-            {
-                if (_intelliSenseListBox.SelectedIndex > 0) _intelliSenseListBox.SelectedIndex--;
-                e.SuppressKeyPress = true;
-            }
-            else if (e.KeyCode is Keys.Enter or Keys.Tab)
-            {
-                InsertIntelliSenseSelection();
-                e.SuppressKeyPress = true;
-            }
-            else if (e.KeyCode == Keys.Escape)
-            {
-                _intelliSenseListBox.Visible = false;
-                e.SuppressKeyPress = true;
-            }
-        };
-        _intelliSenseListBox.DoubleClick += (_, _) => InsertIntelliSenseSelection();
+        // Tab/Enter/arrows are intercepted by IntelliSensePopup.ProcessCmdKey while it's visible,
+        // mirroring how Visual Studio's completion controller owns commit/navigation keys. The
+        // popup raises CommitRequested / CancelRequested for us to act on, and key delivery is
+        // suppressed at the popup so no whitespace/newline leaks into the editor.
+        _intelliSensePopup.CommitRequested += (_, _) => InsertIntelliSenseSelection();
+        _intelliSensePopup.CancelRequested += (_, _) => HideIntelliSense();
+
+        Move += (_, _) => { if (_intelliSensePopup.Visible) RepositionIntelliSense(); };
+        Resize += (_, _) => { if (_intelliSensePopup.Visible) RepositionIntelliSense(); };
     }
 
     private void OnEditorChanged()
@@ -1630,7 +1606,7 @@ public sealed partial class MainForm : Form
         RuleContext? context = GetSelectedContext();
         if (context is null)
         {
-            _intelliSenseListBox.Visible = false;
+            HideIntelliSense();
             return;
         }
 
@@ -1641,8 +1617,7 @@ public sealed partial class MainForm : Form
 
         if (response is null || response.Items.Count == 0)
         {
-            _lastCompletion = null;
-            _intelliSenseListBox.Visible = false;
+            HideIntelliSense();
             return;
         }
 
@@ -1656,14 +1631,34 @@ public sealed partial class MainForm : Form
         }
         _intelliSenseListBox.SelectedIndex = 0;
         _intelliSenseListBox.EndUpdate();
-        _intelliSenseListBox.Location = new Point(70, 36);
-        _intelliSenseListBox.BringToFront();
-        _intelliSenseListBox.Visible = true;
+
+        _intelliSensePopup.ShowAt(GetCaretScreenLocation(), _expressionTextBox);
+    }
+
+    private void HideIntelliSense()
+    {
+        if (_intelliSensePopup.Visible) _intelliSensePopup.Hide();
+    }
+
+    private void RepositionIntelliSense()
+    {
+        _intelliSensePopup.ShowAt(GetCaretScreenLocation(), _expressionTextBox);
+    }
+
+    private Point GetCaretScreenLocation()
+    {
+        int caretIndex = Math.Max(0, _expressionTextBox.SelectionStart);
+        Point clientPoint = _expressionTextBox.GetPositionFromCharIndex(caretIndex);
+        // GetPositionFromCharIndex returns the top of the character cell; offset by line height
+        // so the popup appears just below the caret instead of overlapping the current line.
+        int lineHeight = TextRenderer.MeasureText("Wg", _expressionTextBox.Font).Height;
+        clientPoint.Offset(0, lineHeight + 2);
+        return _expressionTextBox.PointToScreen(clientPoint);
     }
 
     private void InsertIntelliSenseSelection()
     {
-        if (!_intelliSenseListBox.Visible || _intelliSenseListBox.SelectedItem is not RuleCompletionItem item) return;
+        if (!_intelliSensePopup.Visible || _intelliSenseListBox.SelectedItem is not RuleCompletionItem item) return;
         if (_lastCompletion is null) return;
 
         int start = _lastCompletion.ReplacementStart;
@@ -1674,7 +1669,7 @@ public sealed partial class MainForm : Form
         string insertText = item.InsertText;
         _expressionTextBox.Text = _expressionTextBox.Text.Remove(start, length).Insert(start, insertText);
         _expressionTextBox.SelectionStart = start + insertText.Length;
-        _intelliSenseListBox.Visible = false;
+        HideIntelliSense();
     }
 
     private void InsertSelectedSuggestion(ComboBox comboBox)
