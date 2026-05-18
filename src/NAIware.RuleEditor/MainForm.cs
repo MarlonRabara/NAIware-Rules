@@ -19,7 +19,6 @@ public sealed partial class MainForm : Form
     private readonly IntelliSenseService _intelliSense;
     private readonly RuleValidationService _validator;
     private readonly RuleTestService _testService = new();
-    private SplitContainer? _editorAndPropsSplit;
     private Panel? _propertiesViewHost;
 
     private RulesLibrary _library = new();
@@ -154,7 +153,6 @@ public sealed partial class MainForm : Form
     };
 
     private readonly Label _libraryCountLabel = new() { Dock = DockStyle.Bottom, Height = 26, Padding = new Padding(12, 6, 0, 0), Text = "1 context(s)      11 rule(s)" };
-    private readonly StatusStrip _statusStrip = new();
     private readonly ToolStripStatusLabel _readyStatusLabel = new() { Text = "Ready", Spring = true, TextAlign = ContentAlignment.MiddleLeft };
     private readonly ToolStripStatusLabel _libraryStatusLabel = new() { Text = "Library: LoanEligibilityRules" };
     private readonly ToolStripStatusLabel _validationStatusLabel = new() { Text = "Validation not run" };
@@ -201,21 +199,70 @@ public sealed partial class MainForm : Form
         _severityComboBox.Items.AddRange(["Info", "Warning", "Error"]);
         _severityComboBox.SelectedItem = "Error";
 
-        Controls.Add(BuildShell());
-        Controls.Add(BuildCommandStrip());
-        Controls.Add(BuildMenu());
-        Controls.Add(BuildStatusBar());
+        // The form shell (menu strip, command toolstrip, status strip, and the three
+        // nested split containers with named host panels) is created by the designer
+        // in InitializeComponent. The Build* methods below populate those hosts with
+        // runtime-generated content (menu items, ribbon buttons, tree, editor, etc.).
+        PopulateMenu(_menuStrip);
+        PopulateCommandStrip(_commandStrip);
+        PopulateStatusBar(_statusStrip);
+        PopulateLibraryPanel(_libraryHost);
+        PopulateEditorPanel(_editorHost);
+        PopulatePropertiesPanel(_propertiesHost);
+        PopulateErrorPanel(_errorHost);
+
+        WireSplitLayout();
     }
 
-    private MenuStrip BuildMenu()
+    private void WireSplitLayout()
     {
-        var menu = new MenuStrip
-        {
-            Dock = DockStyle.Top,
-            RenderMode = ToolStripRenderMode.System,
-            BackColor = Color.White
-        };
+        void OnLayoutChanged(object? _, EventArgs __) => ApplySplitLayout();
+        _shellSplit.HandleCreated += OnLayoutChanged;
+        _shellSplit.SizeChanged += OnLayoutChanged;
+        _topSplit.SizeChanged += OnLayoutChanged;
+        _editorAndPropsSplit.SizeChanged += OnLayoutChanged;
+        ApplySplitLayout();
+    }
 
+    private void ApplySplitLayout()
+    {
+        ConfigureSplit(_shellSplit, panel1MinSize: 0, panel2MinSize: 165, preferredDistance: _shellSplit.Height - 360);
+        ConfigureSplit(_topSplit, panel1MinSize: 260, panel2MinSize: 500, preferredDistance: 410);
+        ConfigureSplit(_editorAndPropsSplit, panel1MinSize: 420, panel2MinSize: 250, preferredDistance: _editorAndPropsSplit.Width - 360);
+    }
+
+    private static void ConfigureSplit(SplitContainer split, int panel1MinSize, int panel2MinSize, int preferredDistance)
+    {
+        int length = split.Orientation == Orientation.Vertical ? split.Width : split.Height;
+        if (length <= 0) return;
+
+        int maxPanelSpace = Math.Max(0, length - split.SplitterWidth);
+
+        int p1 = Math.Max(0, panel1MinSize);
+        int p2 = Math.Max(0, panel2MinSize);
+        if (p1 + p2 > maxPanelSpace)
+        {
+            if (p2 >= maxPanelSpace)
+            {
+                p2 = maxPanelSpace;
+                p1 = 0;
+            }
+            else
+            {
+                p1 = maxPanelSpace - p2;
+            }
+        }
+
+        split.Panel1MinSize = p1;
+        split.Panel2MinSize = p2;
+
+        int minDistance = split.Panel1MinSize;
+        int maxDistance = Math.Max(minDistance, length - split.Panel2MinSize);
+        split.SplitterDistance = Math.Clamp(preferredDistance, minDistance, maxDistance);
+    }
+
+    private void PopulateMenu(MenuStrip menu)
+    {
         ToolStripMenuItem file = new("&File");
         file.DropDownItems.Add(MenuItem("&New Library", Keys.Control | Keys.N, (_, _) => NewLibrary()));
         file.DropDownItems.Add(MenuItem("&Open Library...", Keys.Control | Keys.O, (_, _) => OpenLibrary()));
@@ -266,23 +313,10 @@ public sealed partial class MainForm : Form
         help.DropDownItems.Add(MenuItem("About NAIware Rule Editor", Keys.None, (_, _) => ShowAbout()));
 
         menu.Items.AddRange([file, library, context, category, rule, test, view, tools, help]);
-        return menu;
     }
 
-    private ToolStrip BuildCommandStrip()
+    private void PopulateCommandStrip(ToolStrip strip)
     {
-        var strip = new ToolStrip
-        {
-            Dock = DockStyle.Top,
-            GripStyle = ToolStripGripStyle.Hidden,
-            RenderMode = ToolStripRenderMode.System,
-            ImageScalingSize = new Size(28, 28),
-            AutoSize = false,
-            Height = 128,
-            Padding = new Padding(8, 6, 8, 0),
-            BackColor = Color.White
-        };
-
         strip.Items.Add(ToolButton("New\nLibrary", "File", MakeIcon(IconKind.Document, Color.SeaGreen), (_, _) => NewLibrary()));
         strip.Items.Add(ToolButton("Open\nLibrary", "File", MakeIcon(IconKind.Folder, Color.Goldenrod), (_, _) => OpenLibrary()));
         strip.Items.Add(ToolButton("Save", "File", MakeIcon(IconKind.Disk, Color.RoyalBlue), (_, _) => SaveLibrary()));
@@ -311,93 +345,10 @@ public sealed partial class MainForm : Form
         strip.Items.Add(new ToolStripSeparator());
 
         strip.Items.Add(ToolButton("Validate\nLibrary", "Validation", MakeIcon(IconKind.ClipboardCheck, Color.SeaGreen), (_, _) => ValidateLibrary()));
-        return strip;
-    }
-
-    private Control BuildShell()
-    {
-        var root = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Horizontal,
-            SplitterWidth = 5
-        };
-
-        var top = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Vertical,
-            SplitterWidth = 4
-        };
-
-        var editorAndProps = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Vertical,
-            SplitterWidth = 4
-        };
-
-        _editorAndPropsSplit = editorAndProps;
-
-        top.Panel1.Controls.Add(BuildLibraryPanel());
-        editorAndProps.Panel1.Controls.Add(BuildEditorPanel());
-        editorAndProps.Panel2.Controls.Add(BuildPropertiesPanel());
-        top.Panel2.Controls.Add(editorAndProps);
-
-        root.Panel1.Controls.Add(top);
-        root.Panel2.Controls.Add(BuildErrorPanel());
-
-        ApplySplitLayout();
-
-        void OnLayoutChanged(object? _, EventArgs __) => ApplySplitLayout();
-        root.HandleCreated += OnLayoutChanged;
-        root.SizeChanged += OnLayoutChanged;
-        top.SizeChanged += OnLayoutChanged;
-        editorAndProps.SizeChanged += OnLayoutChanged;
-
-        void ApplySplitLayout()
-        {
-            ConfigureSplit(root, panel1MinSize: 0, panel2MinSize: 165, preferredDistance: root.Height - 360);
-            ConfigureSplit(top, panel1MinSize: 260, panel2MinSize: 500, preferredDistance: 410);
-            ConfigureSplit(editorAndProps, panel1MinSize: 420, panel2MinSize: 250, preferredDistance: editorAndProps.Width - 360);
-        }
-
-        static void ConfigureSplit(SplitContainer split, int panel1MinSize, int panel2MinSize, int preferredDistance)
-        {
-            int length = split.Orientation == Orientation.Vertical ? split.Width : split.Height;
-            if (length <= 0) return;
-
-            int maxPanelSpace = Math.Max(0, length - split.SplitterWidth);
-
-            int p1 = Math.Max(0, panel1MinSize);
-            int p2 = Math.Max(0, panel2MinSize);
-            if (p1 + p2 > maxPanelSpace)
-            {
-                if (p2 >= maxPanelSpace)
-                {
-                    p2 = maxPanelSpace;
-                    p1 = 0;
-                }
-                else
-                {
-                    p1 = maxPanelSpace - p2;
-                }
-            }
-
-            split.Panel1MinSize = p1;
-            split.Panel2MinSize = p2;
-
-            int minDistance = split.Panel1MinSize;
-            int maxDistance = Math.Max(minDistance, length - split.Panel2MinSize);
-            split.SplitterDistance = Math.Clamp(preferredDistance, minDistance, maxDistance);
-        }
-
-        return root;
     }
 
     private void UpdateEditorVisibility()
     {
-        if (_editorAndPropsSplit is null) return;
         _editorAndPropsSplit.Panel1Collapsed = _ruleTree.SelectedNode?.Tag is not RuleExpression;
     }
 
@@ -410,9 +361,9 @@ public sealed partial class MainForm : Form
         _categoryPropertiesView.Visible = ReferenceEquals(view, _categoryPropertiesView);
     }
 
-    private Control BuildLibraryPanel()
+    private void PopulateLibraryPanel(Panel host)
     {
-        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8), BackColor = Color.White };
+        host.Padding = new Padding(8);
         var title = new Label
         {
             Text = "Rule Library",
@@ -424,20 +375,18 @@ public sealed partial class MainForm : Form
 
         var searchHost = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(0, 4, 0, 4) };
         searchHost.Controls.Add(_treeSearchTextBox);
-        panel.Controls.Add(_ruleTree);
-        panel.Controls.Add(_libraryCountLabel);
-        panel.Controls.Add(searchHost);
-        panel.Controls.Add(title);
-        return panel;
+        host.Controls.Add(_ruleTree);
+        host.Controls.Add(_libraryCountLabel);
+        host.Controls.Add(searchHost);
+        host.Controls.Add(title);
     }
 
-    private Control BuildEditorPanel()
+    private void PopulateEditorPanel(Panel host)
     {
-        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12), BackColor = Color.White };
-        panel.Controls.Add(BuildResultDefinitionPanel());
-        panel.Controls.Add(BuildExpressionPanel());
-        panel.Controls.Add(_documentTabLabel);
-        return panel;
+        host.Padding = new Padding(12);
+        host.Controls.Add(BuildResultDefinitionPanel());
+        host.Controls.Add(BuildExpressionPanel());
+        host.Controls.Add(_documentTabLabel);
     }
 
     private Control BuildExpressionPanel()
@@ -505,9 +454,9 @@ public sealed partial class MainForm : Form
         return group;
     }
 
-    private Control BuildPropertiesPanel()
+    private void PopulatePropertiesPanel(Panel host)
     {
-        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(14, 10, 14, 8), BackColor = Color.White };
+        host.Padding = new Padding(14, 10, 14, 8);
         _propertiesViewHost = new Panel { Dock = DockStyle.Fill };
         _rulePropertiesView.Controls.Add(BuildRulePropertiesView());
         _libraryPropertiesView.Controls.Add(BuildLibraryPropertiesView());
@@ -519,9 +468,8 @@ public sealed partial class MainForm : Form
         _propertiesViewHost.Controls.Add(_contextPropertiesView);
         _propertiesViewHost.Controls.Add(_categoryPropertiesView);
 
-        panel.Controls.Add(_propertiesViewHost);
-        panel.Controls.Add(_propertiesTitleLabel);
-        return panel;
+        host.Controls.Add(_propertiesViewHost);
+        host.Controls.Add(_propertiesTitleLabel);
     }
 
     private Control BuildRulePropertiesView()
@@ -660,9 +608,8 @@ public sealed partial class MainForm : Form
         return scroll;
     }
 
-    private Control BuildErrorPanel()
+    private void PopulateErrorPanel(Panel host)
     {
-        var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
         var bar = new Panel { Dock = DockStyle.Top, Height = 40, Padding = new Padding(8, 7, 8, 5), BackColor = Color.WhiteSmoke };
         var label = new Label
         {
@@ -691,18 +638,16 @@ public sealed partial class MainForm : Form
         _errorList.Columns.Add("Line", 80);
         _errorList.Columns.Add("Column", 80);
 
-        panel.Controls.Add(_errorList);
-        panel.Controls.Add(bar);
-        return panel;
+        host.Controls.Add(_errorList);
+        host.Controls.Add(bar);
     }
 
-    private StatusStrip BuildStatusBar()
+    private void PopulateStatusBar(StatusStrip strip)
     {
-        _statusStrip.Items.Add(_readyStatusLabel);
-        _statusStrip.Items.Add(_libraryStatusLabel);
-        _statusStrip.Items.Add(new ToolStripStatusLabel("   "));
-        _statusStrip.Items.Add(_validationStatusLabel);
-        return _statusStrip;
+        strip.Items.Add(_readyStatusLabel);
+        strip.Items.Add(_libraryStatusLabel);
+        strip.Items.Add(new ToolStripStatusLabel("   "));
+        strip.Items.Add(_validationStatusLabel);
     }
 
     private static void AddRow(TableLayoutPanel table, int row, string labelText, Control control)
