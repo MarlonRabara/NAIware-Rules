@@ -1,6 +1,4 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Xml.Serialization;
+using NAIware.Rules.Serialization;
 
 namespace NAIware.RuleEditor;
 
@@ -45,6 +43,7 @@ public sealed class TestDataDialog : Form
     };
 
     private readonly Type _contextType;
+    private readonly Func<string, Type, object> _loader;
 
     /// <summary>Gets the hydrated object if loading succeeded; otherwise null.</summary>
     public object? LoadedObject { get; private set; }
@@ -53,10 +52,18 @@ public sealed class TestDataDialog : Form
     public string? SelectedFile => _fileTextBox.Text;
 
     /// <summary>Creates the test data dialog for the supplied context type.</summary>
-    public TestDataDialog(Type contextType)
+    /// <param name="contextType">The model type the selected file is hydrated into.</param>
+    /// <param name="loader">
+    /// Optional custom loader used to hydrate the selected file. Supply this to honor a
+    /// context's configured serializer/translator (for example a MISMO translator) instead
+    /// of the built-in JSON/XML deserialization. When null, the built-in
+    /// <see cref="LoadObjectFromFile(string, Type)"/> is used.
+    /// </param>
+    public TestDataDialog(Type contextType, Func<string, Type, object>? loader = null)
     {
         ArgumentNullException.ThrowIfNull(contextType);
         _contextType = contextType;
+        _loader = loader ?? LoadObjectFromFile;
 
         Text = $"Load Test Data - {contextType.FullName}";
         Width = 680;
@@ -118,7 +125,7 @@ public sealed class TestDataDialog : Form
     {
         try
         {
-            LoadedObject = LoadObjectFromFile(_fileTextBox.Text, _contextType);
+            LoadedObject = _loader(_fileTextBox.Text, _contextType);
             DialogResult = DialogResult.OK;
             Close();
         }
@@ -128,27 +135,16 @@ public sealed class TestDataDialog : Form
         }
     }
 
+    /// <summary>
+    /// Hydrates the file at <paramref name="path"/> into <paramref name="type"/> using the shared
+    /// built-in JSON/XML deserialization in <c>NAIware.Rules</c>. This is the default loader when
+    /// no context-specific translator is supplied.
+    /// </summary>
     public static object LoadObjectFromFile(string path, Type type)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             throw new FileNotFoundException("Please select a valid test data file.", path);
 
-        string extension = Path.GetExtension(path).ToLowerInvariant();
-        using FileStream stream = File.OpenRead(path);
-
-        return extension switch
-        {
-            ".json" => JsonSerializer.Deserialize(stream, type, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                IncludeFields = true,
-                NumberHandling = JsonNumberHandling.AllowReadingFromString,
-                ReadCommentHandling = JsonCommentHandling.Skip,
-                AllowTrailingCommas = true
-            }) ?? throw new InvalidOperationException("JSON deserialized to null."),
-            ".xml" => new XmlSerializer(type).Deserialize(stream)
-                ?? throw new InvalidOperationException("XML deserialized to null."),
-            _ => throw new InvalidOperationException("Unsupported test file format. Use JSON or XML.")
-        };
+        return ModelHydrator.HydrateBuiltIn(ModelSource.FromFile(path), type);
     }
 }

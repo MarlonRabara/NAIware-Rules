@@ -49,7 +49,7 @@ public sealed class RuleValidationService
                 {
                     Severity = "Error",
                     Context = context.Name,
-                    Message = $"Context type '{context.QualifiedTypeName}' could not be resolved. Re-load the source DLL."
+                    Message = DescribeUnresolvedContext(context)
                 });
                 continue;
             }
@@ -62,6 +62,37 @@ public sealed class RuleValidationService
         }
 
         return issues;
+    }
+
+    /// <summary>
+    /// Produces a precise diagnostic explaining why a context type could not be resolved,
+    /// distinguishing missing configuration, a missing DLL on disk, and a type that is
+    /// absent from an otherwise-loadable assembly. This is far more actionable than a
+    /// generic "could not be resolved" message.
+    /// </summary>
+    private static string DescribeUnresolvedContext(RuleContext context)
+    {
+        string typeName = string.IsNullOrWhiteSpace(context.QualifiedTypeName)
+            ? "(unspecified)"
+            : context.QualifiedTypeName;
+
+        string? assemblyPath = context.SourceAssemblyPath;
+
+        if (string.IsNullOrWhiteSpace(assemblyPath))
+        {
+            return $"Context type '{typeName}' could not be resolved because no source assembly is " +
+                   "configured for this context. Open the context and re-select the model DLL.";
+        }
+
+        if (!File.Exists(assemblyPath))
+        {
+            return $"Context type '{typeName}' could not be resolved because the source assembly was " +
+                   $"not found at '{assemblyPath}'. The DLL may have moved; re-select the model DLL " +
+                   "or restore it to that path.";
+        }
+
+        return $"Context type '{typeName}' was not found in assembly '{assemblyPath}'. The type may have " +
+               "been renamed, removed, or the qualified type name is incorrect. Re-select the model type.";
     }
 
     private static string FindCategoryFor(RuleContext context, Guid expressionId)
@@ -192,7 +223,7 @@ public sealed class RuleValidationService
                 ? token[(metadata.Type.Name.Length + 1)..]
                 : token;
 
-            if (ResolvePropertyType(metadata.Type, path) is null)
+            if (ResolvePropertyType(metadata.Type, path, context.Name) is null)
             {
                 issues.Add(Error(context, category, rule,
                     $"Property path '{token}' could not be resolved on '{metadata.Type.FullName}'. " +
@@ -218,7 +249,7 @@ public sealed class RuleValidationService
                 ? left[(metadata.Type.Name.Length + 1)..]
                 : left;
 
-            Type? leftType = ResolvePropertyType(metadata.Type, path);
+            Type? leftType = ResolvePropertyType(metadata.Type, path, context.Name);
             if (leftType is null) continue; // Already reported by ValidatePropertyPaths.
 
             Type rightType = InferLiteralType(right);
@@ -231,15 +262,21 @@ public sealed class RuleValidationService
         }
     }
 
-    private static Type? ResolvePropertyType(Type rootType, string path)
+    private static Type? ResolvePropertyType(Type rootType, string path, string instanceName = "")
     {
         Type current = rootType;
         foreach (string part in path.Split('.', StringSplitOptions.RemoveEmptyEntries))
         {
-            string clean = Regex.Replace(part, @"\[[0-9]+\]", string.Empty);
+            string cleanPropertyPath = Regex.Replace(part, @"\[[0-9]+\]", string.Empty);
+
+            if (cleanPropertyPath == instanceName)
+            {
+                // this is the root type instance name.
+                continue;
+            }
 
             // Indexed collection element access via dot-notation integer: "Borrowers.0" or "Count".
-            if (int.TryParse(clean, out _))
+            if (int.TryParse(cleanPropertyPath, out _))
             {
                 if (current != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(current) && current.IsGenericType)
                 {
@@ -249,7 +286,7 @@ public sealed class RuleValidationService
                 return null;
             }
 
-            System.Reflection.PropertyInfo? property = current.GetProperty(clean);
+            System.Reflection.PropertyInfo? property = current.GetProperty(cleanPropertyPath);
             if (property is null) return null;
 
             current = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;

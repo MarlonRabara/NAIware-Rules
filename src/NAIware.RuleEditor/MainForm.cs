@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using NAIware.RuleIntelligence;
 using NAIware.Rules.Runtime;
+using NAIware.Rules.Serialization;
 
 namespace NAIware.RuleEditor;
 
@@ -942,46 +943,15 @@ public sealed partial class MainForm : Form
 
     private object DeserializeContextData(RuleContext context, string filePath, Type contextType)
     {
-        if (string.IsNullOrWhiteSpace(context.SerializerAssemblyPath)
-            || string.IsNullOrWhiteSpace(context.SerializerQualifiedTypeName))
-        {
-            return TestDataDialog.LoadObjectFromFile(filePath, contextType);
-        }
-
-        if (!File.Exists(context.SerializerAssemblyPath))
-        {
-            throw new FileNotFoundException("Serializer assembly not found.", context.SerializerAssemblyPath);
-        }
-
-        Assembly serializerAssembly = _typeDiscovery.LoadAssembly(context.SerializerAssemblyPath);
-        Type serializerType = ResolveTypeFromAssembly(serializerAssembly, context.SerializerQualifiedTypeName)
-            ?? throw new InvalidOperationException($"Serializer type '{context.SerializerQualifiedTypeName}' could not be resolved.");
-
-        MethodInfo deserializeMethod = serializerType.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public)
-            .FirstOrDefault(method => string.Equals(method.Name, "Deserialize", StringComparison.Ordinal)
-                                      && method.GetParameters() is [{ ParameterType: var parameterType }]
-                                      && parameterType == typeof(string)
-                                      && method.ReturnType != typeof(void))
-            ?? throw new InvalidOperationException($"Serializer type '{context.SerializerQualifiedTypeName}' must expose Deserialize(string filePath).");
-
-        object? serializer = deserializeMethod.IsStatic ? null : Activator.CreateInstance(serializerType);
-        object? result = deserializeMethod.Invoke(serializer, [filePath]);
-        if (result is null) throw new InvalidOperationException("Serializer deserialized to null.");
-
-        if (!contextType.IsInstanceOfType(result))
-        {
-            throw new InvalidOperationException(
-                $"Serializer returned '{result.GetType().FullName}', which is not assignable to context type '{contextType.FullName}'.");
-        }
-
-        return result;
-    }
-
-    private static Type? ResolveTypeFromAssembly(Assembly assembly, string typeName)
-    {
-        return assembly.GetType(typeName)
-            ?? assembly.GetTypes().FirstOrDefault(t => string.Equals(t.AssemblyQualifiedName, typeName, StringComparison.Ordinal)
-                || string.Equals(t.FullName, typeName, StringComparison.Ordinal));
+        // Delegate to the shared hydrator in NAIware.Rules so the editor and the Rule Service
+        // behave identically, including MISMO-style translator support. When no serializer is
+        // configured, the hydrator falls back to built-in JSON/XML deserialization.
+        var hydrator = new ModelHydrator(_typeDiscovery);
+        return hydrator.Hydrate(
+            ModelSource.FromFile(filePath),
+            contextType,
+            context.SerializerAssemblyPath,
+            context.SerializerQualifiedTypeName);
     }
 
     private void PopulateObjectGraph(string rootName, object root)
@@ -1279,7 +1249,13 @@ public sealed partial class MainForm : Form
             return;
         }
 
-        using var dialog = new TestDataDialog(contextType);
+        // Hydrate through the context's configured serializer/translator (e.g. a MISMO
+        // translator) when one is set; otherwise this falls back to built-in JSON/XML.
+        // Using the dialog's built-in XmlSerializer directly fails for MISMO documents
+        // ("There is an error in XML document (2,2)") because they don't map to the model.
+        using var dialog = new TestDataDialog(
+            contextType,
+            (filePath, type) => DeserializeContextData(context, filePath, type));
         if (dialog.ShowDialog(this) != DialogResult.OK || dialog.LoadedObject is null) return;
 
         try
@@ -1300,6 +1276,27 @@ public sealed partial class MainForm : Form
         try
         {
             _errorList.Items.Clear();
+
+            if (issues.Count == 0)
+            {
+                // Surface an explicit, positive confirmation row so a clean run is unmistakable
+                // rather than just an empty list (which can read as "validation didn't run").
+                var success = new ListViewItem("Success")
+                {
+                    ImageKey = "Success",
+                    ForeColor = Color.FromArgb(33, 145, 80),
+                    UseItemStyleForSubItems = true
+                };
+                success.SubItems.Add("Validation completed successfully. No errors or warnings were found.");
+                success.SubItems.Add(_library.Name ?? string.Empty);
+                success.SubItems.Add(string.Empty);
+                success.SubItems.Add(string.Empty);
+                success.SubItems.Add("-");
+                success.SubItems.Add("-");
+                _errorList.Items.Add(success);
+                return;
+            }
+
             foreach (ValidationIssue issue in issues)
             {
                 var item = new ListViewItem(issue.Severity) { ImageKey = issue.Severity, Tag = issue };
@@ -1932,6 +1929,7 @@ public sealed partial class MainForm : Form
         _issueImages.Images.Add("Error", SeverityIcon("!", Color.FromArgb(210, 55, 48)));
         _issueImages.Images.Add("Warning", SeverityIcon("!", Color.Goldenrod));
         _issueImages.Images.Add("Info", SeverityIcon("i", Color.RoyalBlue));
+        _issueImages.Images.Add("Success", SeverityIcon("✓", Color.FromArgb(33, 145, 80)));
     }
 
     private static Image SeverityIcon(string glyph, Color color)

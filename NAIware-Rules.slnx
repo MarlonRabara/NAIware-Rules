@@ -16,6 +16,9 @@
     <Project Path="tests/NAIware.Core.Tests/NAIware.Core.Tests.csproj" />
     <Project Path="tests/NAIware.Rules.Tests/NAIware.Rules.Tests.csproj" />
   </Folder>
+  <Folder Name="/Services/">
+    <Project Path="src/NAIware.RuleService/NAIware.RuleService.csproj" />
+  </Folder>
   <Folder Name="/User Interface/">
     <Project Path="src/NAIware.RuleEditor/NAIware.RuleEditor.csproj" />
   </Folder>

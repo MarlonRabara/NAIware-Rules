@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.Loader;
+using NAIware.Rules.Serialization;
 
 namespace NAIware.RuleEditor;
 
@@ -24,7 +25,7 @@ namespace NAIware.RuleEditor;
 /// that originated from it before the GC can actually unload the context.
 /// </para>
 /// </remarks>
-public sealed class AssemblyTypeDiscoveryService : IDisposable
+public sealed class AssemblyTypeDiscoveryService : IModelAssemblyResolver, IDisposable
 {
     private readonly Dictionary<string, ContextLoadContext> _contextsByPath =
         new(StringComparer.OrdinalIgnoreCase);
@@ -86,6 +87,30 @@ public sealed class AssemblyTypeDiscoveryService : IDisposable
             throw new FileNotFoundException("Assembly not found.", assemblyPath);
 
         return GetOrCreate(assemblyPath).LoadPrimary();
+    }
+
+    /// <summary>
+    /// Resolves a type by its assembly-qualified or full name from the assembly at the given path.
+    /// Reuses an existing collectible load context for the same DLL when present.
+    /// </summary>
+    /// <param name="assemblyPath">The absolute path to the assembly that defines the type.</param>
+    /// <param name="qualifiedTypeName">The assembly-qualified or full type name.</param>
+    /// <returns>The resolved <see cref="Type"/>.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the type cannot be resolved.</exception>
+    public Type ResolveType(string assemblyPath, string qualifiedTypeName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(qualifiedTypeName);
+
+        Assembly assembly = LoadAssembly(assemblyPath);
+
+        Type? resolved = assembly.GetType(qualifiedTypeName)
+            ?? assembly.GetTypes().FirstOrDefault(t =>
+                string.Equals(t.AssemblyQualifiedName, qualifiedTypeName, StringComparison.Ordinal)
+                || string.Equals(t.FullName, qualifiedTypeName, StringComparison.Ordinal));
+
+        return resolved
+            ?? throw new InvalidOperationException(
+                $"Type '{qualifiedTypeName}' could not be resolved from assembly '{assemblyPath}'.");
     }
 
     /// <summary>

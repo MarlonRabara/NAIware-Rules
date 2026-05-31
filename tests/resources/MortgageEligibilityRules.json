@@ -1,0 +1,87 @@
+{
+  "Identity": "b1f4d2a0-5c3e-4a91-9b7d-2e6f8a0c1d34",
+  "Name": "MortgageEligibilityRules",
+  "Description": "Rules library used by the Rule Service API integration tests.",
+  "Version": 1,
+  "SnapshotIdentity": "c2a5e3b1-6d4f-4b02-8c8e-3f7a9b1d2e45",
+  "IsPublished": false,
+  "State": "Draft",
+  "Contexts": [
+    {
+      "Identity": "32a8d79d-bbe9-4a15-be01-69d1076c4b30",
+      "Name": "Loan",
+      "Description": "Mortgage loan application rules.",
+      "QualifiedTypeName": "Mortgage.Model.Loans.LoanApplication, Mortgage.Model, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+      "SourceAssemblyPath": "Mortgage.Model.dll",
+      "SerializerAssemblyPath": "Mortgage.Model.Translators.MISMO.dll",
+      "SerializerQualifiedTypeName": "Mortgage.Model.Translators.MISMO.MortgageFileMismoTranslator, Mortgage.Model.Translators.MISMO, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+      "Categories": [
+        {
+          "Identity": "6fa28591-3ef7-4b8d-b283-b418c5984024",
+          "Name": "01 - Borrower",
+          "Description": "",
+          "Categories": [],
+          "ExpressionIds": [
+            "af20bccf-2ef2-4bdc-b8f4-92929ffcb560"
+          ]
+        },
+        {
+          "Identity": "7b39a6c2-4f08-4c9e-a394-c529d6095135",
+          "Name": "02 - Loan Terms",
+          "Description": "",
+          "Categories": [],
+          "ExpressionIds": [
+            "bc31cdd0-3f03-4ced-c9a5-a3a30aafd671",
+            "cd42dee1-4014-4dfe-dab6-b4b41bbcd782"
+          ]
+        }
+      ],
+      "Expressions": [
+        {
+          "Identity": "af20bccf-2ef2-4bdc-b8f4-92929ffcb560",
+          "Name": "Primary Borrower First Name",
+          "Description": "Confirms the expected primary borrower.",
+          "Expression": "PrimaryBorrower.FirstName = \"Marlon\"",
+          "IsActive": true,
+          "Priority": 10,
+          "Tags": [ "borrower" ],
+          "ResultDefinition": {
+            "Code": "BORR-001",
+            "Message": "Primary borrower identified.",
+            "Severity": "Info"
+          }
+        },
+        {
+          "Identity": "bc31cdd0-3f03-4ced-c9a5-a3a30aafd671",
+          "Name": "Loan Amount Within Limit",
+          "Description": "Requested loan amount is within the conforming limit.",
+          "Expression": "Terms.RequestedLoanAmount <= 500000",
+          "IsActive": true,
+          "Priority": 20,
+          "Tags": [ "loan", "amount" ],
+          "ResultDefinition": {
+            "Code": "AMT-001",
+            "Message": "Loan amount is within the conforming limit.",
+            "Severity": "Info"
+          }
+        },
+        {
+          "Identity": "cd42dee1-4014-4dfe-dab6-b4b41bbcd782",
+          "Name": "High Balance Loan",
+          "Description": "Flags loans above one million.",
+          "Expression": "Terms.RequestedLoanAmount > 1000000",
+          "IsActive": true,
+          "Priority": 30,
+          "Tags": [ "loan", "amount" ],
+          "ResultDefinition": {
+            "Code": "AMT-002",
+            "Message": "High balance loan requires additional review.",
+            "Severity": "Warning"
+          }
+        }
+      ],
+      "ParameterDefinitions": []
+    }
+  ],
+  "Versions": []
+}

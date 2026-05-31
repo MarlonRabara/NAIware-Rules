@@ -18,6 +18,7 @@ NAIware-Rules/
 │       ├── Runtime/           # Evaluation request/result models and diagnostics
 │       ├── Rules/             # Rules engine and rule trees
 │       └── Formulae/          # Formulae engine and formula trees
+│   └── NAIware.RuleService/   # ASP.NET Core Web API for evaluating serialized models against a library
 ├── tests/
 │   ├── NAIware.Core.Tests/    # BDD tests for core utilities
 │   └── NAIware.Rules.Tests/   # BDD tests for rules, formulae, mortgage processing, and rule processor
@@ -402,6 +403,43 @@ Console.WriteLine(library.Version); // 2
 ```
 
 Rule expressions are mutable leaves within a library version. They do not have expression-level version numbers, revision histories, or per-rule rollback semantics.
+
+## Rule Service API
+
+`src/NAIware.RuleService` is an ASP.NET Core Web API that evaluates a serialized model (JSON or XML) against a rules library and returns structured results. It enables out-of-process and automated evaluation — for example, the integration tests in `NAIware.Rules.Tests` post a sample MISMO loan document to the API and assert on the results.
+
+### Pipeline
+
+```
+serialized model (JSON/XML)  ──▶  ModelDeserializationService  ──▶  domain model object
+        +                                  (optional translator)
+rules library (JSON)         ──▶  RulesLibraryLoader           ──▶  RulesLibrary
+                                                                        │
+                                              RuleEvaluationService ────┤  resolves & aligns context
+                                                                        ▼
+                                                   RuleProcessor  ──▶  EvaluateModelResponse
+```
+
+### Endpoint
+
+`POST /api/rules/evaluate` accepts an `EvaluateModelRequest` and returns an `EvaluateModelResponse` (matches, mismatches with optional diagnostics, errors, and warnings). `GET /api/rules/health` is a liveness probe.
+
+The request supplies the model assembly/type, the model payload (inline `Payload` or a `PayloadPath`), the rules library (inline `LibraryJson` or a `LibraryPath`), and an optional custom translator. When a translator is configured (`SerializerAssemblyPath` + `SerializerQualifiedTypeName`), the service invokes its `Deserialize(string filePath)` method via reflection — the same contract the Rule Editor uses — so MISMO-style translators (e.g. `Mortgage.Model.Translators.MISMO`) work unchanged. Otherwise it falls back to `System.Text.Json` / `XmlSerializer`.
+
+Model and translator assemblies are loaded on demand into collectible `AssemblyLoadContext` instances that preserve a single `Type` identity across related DLLs, mirroring the editor's `AssemblyTypeDiscoveryService`.
+
+### Security considerations
+
+> **The API is a developer/test harness, not a production-hardened service.** It loads arbitrary assemblies and reads arbitrary file paths supplied by the caller. Before any real-world exposure it requires, at minimum:
+> - Authentication and authorization on the endpoints.
+> - Allow-listing (or outright removal) of caller-supplied `*AssemblyPath`, `PayloadPath`, and `LibraryPath` values to prevent path traversal and arbitrary assembly loading.
+> - Sandboxing/isolation for untrusted model and translator assemblies, since loaded code executes in-process.
+> - Request size limits and timeouts to bound resource usage.
+
+### Known issues / concerns
+
+- **`tests/resources/LoanEligibilityRules.json` is broken.** Its expression uses the root-context prefix `Loan.PrimaryBorrower.FirstName`, but `ParameterFactory` extracts parameters **without** a root prefix (e.g. `PrimaryBorrower.FirstName`). Under `Strict` execution mode this raises a parse error. The API integration tests use a corrected library, `tests/resources/MortgageEligibilityRules.json`, authored against the verified parameter paths. The original resource should be fixed or removed separately.
+- **`NAIware.RuleEditor` does not build as part of the solution.** It references `NAIware.RuleIntelligence`, which `NAIware-Rules.slnx` excludes from the build (`Project="false"`). A full-solution build therefore fails on the editor. This is pre-existing and unrelated to the Rule Service; the service and test projects build and run independently.
 
 ## Coding Standards
 
