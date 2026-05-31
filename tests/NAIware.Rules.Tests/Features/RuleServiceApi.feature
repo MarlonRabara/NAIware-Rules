@@ -38,3 +38,33 @@ Scenario: Bad request when the model assembly is missing
 	And the request uses the rules library file "MortgageEligibilityRules.json"
 	When I post the evaluation request
 	Then the response status should be "BadRequest"
+
+Scenario: A valid draft expression passes validation
+	Given a validation request for the "Mortgage.Model" loan application model
+	And the draft expression is "Terms.RequestedLoanAmount <= 500000"
+	And the draft result code is "AMT-001" and message "Within limit"
+	When I post the validation request
+	Then the response status should be "OK"
+	And the draft should be valid
+	And the validation should report 0 errors
+
+Scenario: A draft expression with an unknown property is rejected
+	Given a validation request for the "Mortgage.Model" loan application model
+	And the draft expression is "Terms.NotARealProperty > 10"
+	When I post the validation request
+	Then the response status should be "OK"
+	And the draft should be invalid
+	And the validation issues should contain "NotARealProperty"
+
+Scenario: A draft expression with unbalanced parentheses is rejected
+	Given a validation request for the "Mortgage.Model" loan application model
+	And the draft expression is "(Terms.RequestedLoanAmount <= 500000"
+	When I post the validation request
+	Then the response status should be "OK"
+	And the draft should be invalid
+
+Scenario: An entire rules library is validated
+	Given a library validation request using the inline rules library from file "MortgageEligibilityRules.json"
+	When I post the library validation request
+	Then the response status should be "OK"
+	And the draft should be valid

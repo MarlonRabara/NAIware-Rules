@@ -131,7 +131,25 @@ namespace NAIware.Rules.Tests.Features
                     "missing\r\n\tGiven a request referencing a missing model assembly \"DoesNotExist.dll" +
                     "\"\r\n\tAnd the request payload is the inline content \"<MESSAGE />\" as \"Xml\"\r\n\tAnd t" +
                     "he request uses the rules library file \"MortgageEligibilityRules.json\"\r\n\tWhen I " +
-                    "post the evaluation request\r\n\tThen the response status should be \"BadRequest\"\r\n", global::Io.Cucumber.Messages.Types.SourceMediaType.TEXT_X_CUCUMBER_GHERKIN_PLAIN);
+                    "post the evaluation request\r\n\tThen the response status should be \"BadRequest\"\r\n\r" +
+                    "\nScenario: A valid draft expression passes validation\r\n\tGiven a validation reque" +
+                    "st for the \"Mortgage.Model\" loan application model\r\n\tAnd the draft expression is" +
+                    " \"Terms.RequestedLoanAmount <= 500000\"\r\n\tAnd the draft result code is \"AMT-001\" " +
+                    "and message \"Within limit\"\r\n\tWhen I post the validation request\r\n\tThen the respo" +
+                    "nse status should be \"OK\"\r\n\tAnd the draft should be valid\r\n\tAnd the validation s" +
+                    "hould report 0 errors\r\n\r\nScenario: A draft expression with an unknown property i" +
+                    "s rejected\r\n\tGiven a validation request for the \"Mortgage.Model\" loan applicatio" +
+                    "n model\r\n\tAnd the draft expression is \"Terms.NotARealProperty > 10\"\r\n\tWhen I pos" +
+                    "t the validation request\r\n\tThen the response status should be \"OK\"\r\n\tAnd the dra" +
+                    "ft should be invalid\r\n\tAnd the validation issues should contain \"NotARealPropert" +
+                    "y\"\r\n\r\nScenario: A draft expression with unbalanced parentheses is rejected\r\n\tGiv" +
+                    "en a validation request for the \"Mortgage.Model\" loan application model\r\n\tAnd th" +
+                    "e draft expression is \"(Terms.RequestedLoanAmount <= 500000\"\r\n\tWhen I post the v" +
+                    "alidation request\r\n\tThen the response status should be \"OK\"\r\n\tAnd the draft shou" +
+                    "ld be invalid\r\n\r\nScenario: An entire rules library is validated\r\n\tGiven a librar" +
+                    "y validation request using the inline rules library from file \"MortgageEligibili" +
+                    "tyRules.json\"\r\n\tWhen I post the library validation request\r\n\tThen the response s" +
+                    "tatus should be \"OK\"\r\n\tAnd the draft should be valid\r\n", global::Io.Cucumber.Messages.Types.SourceMediaType.TEXT_X_CUCUMBER_GHERKIN_PLAIN);
         }
         
         private static global::Io.Cucumber.Messages.Types.GherkinDocument GherkinDocumentFunc()
@@ -140,110 +158,190 @@ namespace NAIware.Rules.Tests.Features
                         "o the HTTP evaluation endpoint\r\n\tSo that I can evaluate them against a rules lib" +
                         "rary and receive results", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.FeatureChild>(new global::Io.Cucumber.Messages.Types.FeatureChild[] {
                                 new global::Io.Cucumber.Messages.Types.FeatureChild(null, null, new global::Io.Cucumber.Messages.Types.Scenario(new global::Io.Cucumber.Messages.Types.Location(6, new System.Nullable<long>(1)), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Tag>(new global::Io.Cucumber.Messages.Types.Tag[0]), "Scenario", "Health endpoint reports healthy", "", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Step>(new global::Io.Cucumber.Messages.Types.Step[] {
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(7, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I request the service health endpoint", null, null, "785642c824712e53aae0d3e1654aefc2"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(8, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"OK\"", null, null, "1fff61d73697d954ad0661c1598fd4c5")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "4522e3fa9dbeb3529b025fbe7d50b014")),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(7, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I request the service health endpoint", null, null, "fd2ca4764458905a85e16f45ef91b81a"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(8, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"OK\"", null, null, "ed4404e27fc17057b4191c74c0daf668")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "97bef55ab221775285f9342dd0d59274")),
                                 new global::Io.Cucumber.Messages.Types.FeatureChild(null, null, new global::Io.Cucumber.Messages.Types.Scenario(new global::Io.Cucumber.Messages.Types.Location(10, new System.Nullable<long>(1)), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Tag>(new global::Io.Cucumber.Messages.Types.Tag[0]), "Scenario", "MISMO XML is translated and evaluated via the configured translator", "", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Step>(new global::Io.Cucumber.Messages.Types.Step[] {
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(11, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "a request for the \"Mortgage.Model\" loan application model", null, null, "178ae244d522ac5eaf4a725c8e2085fb"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(12, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request uses the MISMO translator", null, null, "07a126d7d3c04050bab967beafe0163d"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(13, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request payload is the file \"sample-loan-application.xml\" as \"Xml\"", null, null, "ab1ba3dc8dda7957bd5d20bf652a569d"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(14, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request uses the rules library file \"MortgageEligibilityRules.json\"", null, null, "e785339aeebeb95fa82731671e09b789"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(15, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request execution mode is \"Lenient\"", null, null, "7cdf44ebb49b135384309f93d4e07650"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(16, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I post the evaluation request", null, null, "5e3cff467a85185bbde02d2ba0389199"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(17, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"OK\"", null, null, "62d5c9264f076f57b0ec00dd8e6e1e10"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(18, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the evaluated context name should be \"Loan\"", null, null, "da73a67549702958aa91a1b3f2a3bd7e"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(19, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the evaluation should have succeeded", null, null, "01df5b40f109165eac904d88bcec1a33"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(20, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the total evaluated rules should be 3", null, null, "5d3fab330233d65f97d728bcdd487010"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(21, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the matches should contain code \"BORR-001\"", null, null, "246f705fe14d175d9ab60e080497c016"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(22, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the matches should contain code \"AMT-001\"", null, null, "ba447a004a43e350aabdd551610eb313"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(23, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the mismatches should contain expression \"High Balance Loan\"", null, null, "cfb841de58862358a5678ffb1049b582")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "6f3ccfbb1757d6518885fb7780501241")),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(11, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "a request for the \"Mortgage.Model\" loan application model", null, null, "06183eddfa123559b85aea51b7afa662"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(12, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request uses the MISMO translator", null, null, "9de5a9a35473925c9614b290e93eb3e4"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(13, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request payload is the file \"sample-loan-application.xml\" as \"Xml\"", null, null, "ee6576879ed54d578c2e18e24879440e"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(14, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request uses the rules library file \"MortgageEligibilityRules.json\"", null, null, "36fc05f441b6875fae1ad49c54db352c"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(15, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request execution mode is \"Lenient\"", null, null, "8fae074e64bf175794909d16ff7ed137"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(16, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I post the evaluation request", null, null, "70476008c343a15690e8dda2c696cdb8"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(17, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"OK\"", null, null, "5f7b8352918cdd5a88c1371c4954dc55"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(18, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the evaluated context name should be \"Loan\"", null, null, "70d26e3d381d6759a2b7ecac05345d28"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(19, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the evaluation should have succeeded", null, null, "58d0d96d2a0f9b55b5a59cd081ca24ba"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(20, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the total evaluated rules should be 3", null, null, "d10112445109095fba6075faadf98a07"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(21, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the matches should contain code \"BORR-001\"", null, null, "6bd9335dbfe864528bc6fba269fc7b04"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(22, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the matches should contain code \"AMT-001\"", null, null, "a41047ab3024e4509b6558c61be02e8a"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(23, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the mismatches should contain expression \"High Balance Loan\"", null, null, "2e2715a8445eea54bd7df3fe99d9af52")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "1624968820e3365a90bab816675c5927")),
                                 new global::Io.Cucumber.Messages.Types.FeatureChild(null, null, new global::Io.Cucumber.Messages.Types.Scenario(new global::Io.Cucumber.Messages.Types.Location(25, new System.Nullable<long>(1)), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Tag>(new global::Io.Cucumber.Messages.Types.Tag[0]), "Scenario", "Inline XML payload is evaluated", "", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Step>(new global::Io.Cucumber.Messages.Types.Step[] {
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(26, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "a request for the \"Mortgage.Model\" loan application model", null, null, "c81d0490c739e4588fa13b8f2b51454c"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(27, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request uses the MISMO translator", null, null, "fca5e93f31edca51be8a0588c940f5c2"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(26, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "a request for the \"Mortgage.Model\" loan application model", null, null, "b2f72bd03aacd657a3c3ea22b0c4b29a"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(27, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request uses the MISMO translator", null, null, "037c3f486c272850b98f6cfefcf14195"),
                                                     new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(28, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request payload is the inline content of file \"sample-loan-application.xml\" a" +
-                                                            "s \"Xml\"", null, null, "dd9c1decb63a6053bc7ff84bf17f517b"),
+                                                            "s \"Xml\"", null, null, "57ea3b40aae3655dbae04c970bccdbbc"),
                                                     new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(29, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request uses the inline rules library from file \"MortgageEligibilityRules.jso" +
-                                                            "n\"", null, null, "009d26a0f9f6e750b77dd698fff84a54"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(30, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I post the evaluation request", null, null, "230cbd2795165351b29ccda7ef013753"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(31, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"OK\"", null, null, "3076e4e951611f5093599f2174d859c5"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(32, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the total evaluated rules should be 3", null, null, "9d8663fceb9fb65588aaafc00fd3d9aa"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(33, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the matches should contain code \"BORR-001\"", null, null, "34a4d49a702e6b5094173588ccd67d05")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "678a57cfa77eed5ca2b2a1497f933351")),
+                                                            "n\"", null, null, "7222c67b84b5d551b8a21e68fd8569cb"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(30, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I post the evaluation request", null, null, "d089748d2d91ae579895c72f4cdf76ab"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(31, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"OK\"", null, null, "e657d2c4cb969a5881151ee57ffa2de1"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(32, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the total evaluated rules should be 3", null, null, "2e62c7a1cc36935db061859257c69696"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(33, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the matches should contain code \"BORR-001\"", null, null, "2289578911eb4d5a9b6888ca7e02d861")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "a7653cf599445b5db4d64608a1308432")),
                                 new global::Io.Cucumber.Messages.Types.FeatureChild(null, null, new global::Io.Cucumber.Messages.Types.Scenario(new global::Io.Cucumber.Messages.Types.Location(35, new System.Nullable<long>(1)), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Tag>(new global::Io.Cucumber.Messages.Types.Tag[0]), "Scenario", "Bad request when the model assembly is missing", "", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Step>(new global::Io.Cucumber.Messages.Types.Step[] {
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(36, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "a request referencing a missing model assembly \"DoesNotExist.dll\"", null, null, "543bebb2ef004e58bbe90a3839e0f7b1"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(37, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request payload is the inline content \"<MESSAGE />\" as \"Xml\"", null, null, "0347e3334d4ae45faef7ffea91961a83"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(38, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request uses the rules library file \"MortgageEligibilityRules.json\"", null, null, "e8519c720387e65ab7ff1bd626430f50"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(39, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I post the evaluation request", null, null, "1af62a0201d69c52a82eb035710378e0"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(40, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"BadRequest\"", null, null, "4e8cc219b0b4945bbe6090cb999fcd9d")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "5d1b8c667d55b45e9e09de74583db198"))})), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Comment>(new global::Io.Cucumber.Messages.Types.Comment[0]));
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(36, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "a request referencing a missing model assembly \"DoesNotExist.dll\"", null, null, "505792399be35d548d698f0366fbdc71"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(37, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request payload is the inline content \"<MESSAGE />\" as \"Xml\"", null, null, "7a58a07117c0c559bab291c18a67b79a"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(38, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the request uses the rules library file \"MortgageEligibilityRules.json\"", null, null, "c85f4edf18ea9a5ba6713c0e3383044f"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(39, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I post the evaluation request", null, null, "ac84489508f26e58b788da67fdb00bc9"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(40, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"BadRequest\"", null, null, "55e3eb6fdcb97457baa6f38af32fc878")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "2a3ce6ac03bf0d59bddc2f62678ec266")),
+                                new global::Io.Cucumber.Messages.Types.FeatureChild(null, null, new global::Io.Cucumber.Messages.Types.Scenario(new global::Io.Cucumber.Messages.Types.Location(42, new System.Nullable<long>(1)), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Tag>(new global::Io.Cucumber.Messages.Types.Tag[0]), "Scenario", "A valid draft expression passes validation", "", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Step>(new global::Io.Cucumber.Messages.Types.Step[] {
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(43, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "a validation request for the \"Mortgage.Model\" loan application model", null, null, "515baf37107ad9508b298505c74e50ec"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(44, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the draft expression is \"Terms.RequestedLoanAmount <= 500000\"", null, null, "fbd7893019f1a656870d9007f677ab5b"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(45, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the draft result code is \"AMT-001\" and message \"Within limit\"", null, null, "b795539fc688c85497395df43959bbb8"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(46, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I post the validation request", null, null, "80c08e46b08c0a5ea8b6fa747f354edc"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(47, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"OK\"", null, null, "c270bf44d7d42a55bcccb72ed274ab6f"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(48, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the draft should be valid", null, null, "9d948cf7fb824a57bd71d96f3e3b5e9e"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(49, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the validation should report 0 errors", null, null, "77f62b3c47ca0754809a603a87c4bb6a")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "50ce58709111a05d83ded8ee6ecd8c06")),
+                                new global::Io.Cucumber.Messages.Types.FeatureChild(null, null, new global::Io.Cucumber.Messages.Types.Scenario(new global::Io.Cucumber.Messages.Types.Location(51, new System.Nullable<long>(1)), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Tag>(new global::Io.Cucumber.Messages.Types.Tag[0]), "Scenario", "A draft expression with an unknown property is rejected", "", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Step>(new global::Io.Cucumber.Messages.Types.Step[] {
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(52, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "a validation request for the \"Mortgage.Model\" loan application model", null, null, "8a4f6dfed5fd885faa972efe8194b6b8"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(53, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the draft expression is \"Terms.NotARealProperty > 10\"", null, null, "fcf33671f5ae8e578c95e42e4ac925d9"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(54, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I post the validation request", null, null, "877cc2b184790e599b4c891b9b30bec1"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(55, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"OK\"", null, null, "9cd1864fc0861a53a5c3a72ccf5769a3"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(56, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the draft should be invalid", null, null, "c630d4d25abec355b870e2519641a274"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(57, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the validation issues should contain \"NotARealProperty\"", null, null, "3a53f02e36e2455c831a5637aa2e0122")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "61fd764df444175da25084c8c74497d0")),
+                                new global::Io.Cucumber.Messages.Types.FeatureChild(null, null, new global::Io.Cucumber.Messages.Types.Scenario(new global::Io.Cucumber.Messages.Types.Location(59, new System.Nullable<long>(1)), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Tag>(new global::Io.Cucumber.Messages.Types.Tag[0]), "Scenario", "A draft expression with unbalanced parentheses is rejected", "", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Step>(new global::Io.Cucumber.Messages.Types.Step[] {
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(60, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "a validation request for the \"Mortgage.Model\" loan application model", null, null, "4ba508ee65bc4657bbb26feb8fd89342"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(61, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the draft expression is \"(Terms.RequestedLoanAmount <= 500000\"", null, null, "b87a83af30dad558a8c219e2a0f1d930"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(62, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I post the validation request", null, null, "222011a46f409c59bdad2eeb99edb2ec"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(63, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"OK\"", null, null, "f0dfd7e5b2735b50bec8f797f2fa180a"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(64, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the draft should be invalid", null, null, "6b70e7950daa515f8d5eeca2656621f8")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "7d72b0e159a0c8589691ab4fe8b64797")),
+                                new global::Io.Cucumber.Messages.Types.FeatureChild(null, null, new global::Io.Cucumber.Messages.Types.Scenario(new global::Io.Cucumber.Messages.Types.Location(66, new System.Nullable<long>(1)), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Tag>(new global::Io.Cucumber.Messages.Types.Tag[0]), "Scenario", "An entire rules library is validated", "", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Step>(new global::Io.Cucumber.Messages.Types.Step[] {
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(67, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "a library validation request using the inline rules library from file \"MortgageEl" +
+                                                            "igibilityRules.json\"", null, null, "5154ee6eff43445bac990240883081be"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(68, new System.Nullable<long>(2)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I post the library validation request", null, null, "2ab82e1d519298589d7f4f3f2f1817c9"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(69, new System.Nullable<long>(2)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the response status should be \"OK\"", null, null, "3f8132b87b64bd539af8af5e4eb49882"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(70, new System.Nullable<long>(2)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the draft should be valid", null, null, "c9b0392e54ab1452bc81ce8113791f99")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "af31bfa2d1a5725e80481b93dd1bfb8d"))})), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Comment>(new global::Io.Cucumber.Messages.Types.Comment[0]));
         }
         
         private static global::System.Collections.Generic.IEnumerable<Io.Cucumber.Messages.Types.Pickle> PicklesFunc()
         {
             return new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Pickle>(new global::Io.Cucumber.Messages.Types.Pickle[] {
-                        new global::Io.Cucumber.Messages.Types.Pickle("e9b4b4d6247af5569c6f924a7f7920e5", "Features/RuleServiceApi.feature", "Health endpoint reports healthy", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
+                        new global::Io.Cucumber.Messages.Types.Pickle("05917afa382c9050b6e498d669ace2e8", "Features/RuleServiceApi.feature", "Health endpoint reports healthy", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "785642c824712e53aae0d3e1654aefc2"}), "8f23077352c31b50ae005c59ff204b00", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I request the service health endpoint"),
+                                                        "fd2ca4764458905a85e16f45ef91b81a"}), "5f1b6eb13128155b8d5f4b99ff77283a", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I request the service health endpoint"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "1fff61d73697d954ad0661c1598fd4c5"}), "0664b073a145bd5aa7360603d2cc06c6", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"OK\"")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
-                                        "4522e3fa9dbeb3529b025fbe7d50b014"})),
-                        new global::Io.Cucumber.Messages.Types.Pickle("017a6584a4d4385bbb6fa6423c728ba7", "Features/RuleServiceApi.feature", "MISMO XML is translated and evaluated via the configured translator", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
+                                                        "ed4404e27fc17057b4191c74c0daf668"}), "c858c9884a98595aab887e49c3bb19bf", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"OK\"")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
+                                        "97bef55ab221775285f9342dd0d59274"})),
+                        new global::Io.Cucumber.Messages.Types.Pickle("e47b9293fee6755aa532ae5012f55f0a", "Features/RuleServiceApi.feature", "MISMO XML is translated and evaluated via the configured translator", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "178ae244d522ac5eaf4a725c8e2085fb"}), "59651bdd3343665a8a4910a7835c7e29", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "a request for the \"Mortgage.Model\" loan application model"),
+                                                        "06183eddfa123559b85aea51b7afa662"}), "5159253e7382b455b774a15f445d007b", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "a request for the \"Mortgage.Model\" loan application model"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "07a126d7d3c04050bab967beafe0163d"}), "6796890e768bd45da113d28045d9c504", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request uses the MISMO translator"),
+                                                        "9de5a9a35473925c9614b290e93eb3e4"}), "5c96bf877fa6fc569f2c68083bf41fe1", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request uses the MISMO translator"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "ab1ba3dc8dda7957bd5d20bf652a569d"}), "6a778ef76bdb975fb0f1c043ab42fe7b", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request payload is the file \"sample-loan-application.xml\" as \"Xml\""),
+                                                        "ee6576879ed54d578c2e18e24879440e"}), "db98647295271c5d8eaf42c25af85e51", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request payload is the file \"sample-loan-application.xml\" as \"Xml\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "e785339aeebeb95fa82731671e09b789"}), "41bd8d4297232c5dadaf0fd327b0d462", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request uses the rules library file \"MortgageEligibilityRules.json\""),
+                                                        "36fc05f441b6875fae1ad49c54db352c"}), "a96711035677305e8d4d6abd5c7c59ff", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request uses the rules library file \"MortgageEligibilityRules.json\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "7cdf44ebb49b135384309f93d4e07650"}), "58a039b79e76fc5da1d491f2c90733bf", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request execution mode is \"Lenient\""),
+                                                        "8fae074e64bf175794909d16ff7ed137"}), "f37a5dcd72d8c854b42a95c9142ad0b0", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request execution mode is \"Lenient\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "5e3cff467a85185bbde02d2ba0389199"}), "e7083a99e1a69156a8160431768deb6f", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I post the evaluation request"),
+                                                        "70476008c343a15690e8dda2c696cdb8"}), "b28382abec3fbd5591664a1e285fe0a6", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I post the evaluation request"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "62d5c9264f076f57b0ec00dd8e6e1e10"}), "0ff35e94e318a056bd50060b68f4cf14", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"OK\""),
+                                                        "5f7b8352918cdd5a88c1371c4954dc55"}), "d8b9ae02f06f5e5c845b3960a82b02c9", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"OK\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "da73a67549702958aa91a1b3f2a3bd7e"}), "3bbe38a60b3bd558be6bddb378c980fb", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the evaluated context name should be \"Loan\""),
+                                                        "70d26e3d381d6759a2b7ecac05345d28"}), "bcce175ad720c05da07cdbc4eca5dad6", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the evaluated context name should be \"Loan\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "01df5b40f109165eac904d88bcec1a33"}), "a55ee8e8424a275398056ec01f23f39e", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the evaluation should have succeeded"),
+                                                        "58d0d96d2a0f9b55b5a59cd081ca24ba"}), "326f8ec4e2d49b5b84d4be821a64e2ca", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the evaluation should have succeeded"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "5d3fab330233d65f97d728bcdd487010"}), "cb4ec73c4df3db518f878864a7e97cad", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the total evaluated rules should be 3"),
+                                                        "d10112445109095fba6075faadf98a07"}), "538d5bc34f5e6159bd4dcc0cd0fb5889", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the total evaluated rules should be 3"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "246f705fe14d175d9ab60e080497c016"}), "d9fd88469708b25bbe87c23cf8cfe47d", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the matches should contain code \"BORR-001\""),
+                                                        "6bd9335dbfe864528bc6fba269fc7b04"}), "19801222ac104f55b9efadeb86e1cf26", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the matches should contain code \"BORR-001\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "ba447a004a43e350aabdd551610eb313"}), "47c1373d6166c95c80d2109260c226ba", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the matches should contain code \"AMT-001\""),
+                                                        "a41047ab3024e4509b6558c61be02e8a"}), "00ffcc6dd13dde5b8350c2daf09fa75c", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the matches should contain code \"AMT-001\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "cfb841de58862358a5678ffb1049b582"}), "f1fc9982ecd3825f9a0d1b1d35c78d9e", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the mismatches should contain expression \"High Balance Loan\"")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
-                                        "6f3ccfbb1757d6518885fb7780501241"})),
-                        new global::Io.Cucumber.Messages.Types.Pickle("cbeefcb8f3ea185b9aa2353ab89c71d6", "Features/RuleServiceApi.feature", "Inline XML payload is evaluated", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
+                                                        "2e2715a8445eea54bd7df3fe99d9af52"}), "571f41fcda5c155891490cd8d392b355", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the mismatches should contain expression \"High Balance Loan\"")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
+                                        "1624968820e3365a90bab816675c5927"})),
+                        new global::Io.Cucumber.Messages.Types.Pickle("2bb658010ea5ef558515077d6ef723d6", "Features/RuleServiceApi.feature", "Inline XML payload is evaluated", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "c81d0490c739e4588fa13b8f2b51454c"}), "c34fb13c3c05d4509f6ecaa8e75378e9", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "a request for the \"Mortgage.Model\" loan application model"),
+                                                        "b2f72bd03aacd657a3c3ea22b0c4b29a"}), "329ec8b5bf1f8e5c8724cc8e0aea4284", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "a request for the \"Mortgage.Model\" loan application model"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "fca5e93f31edca51be8a0588c940f5c2"}), "08a094338004375587164827bda79487", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request uses the MISMO translator"),
+                                                        "037c3f486c272850b98f6cfefcf14195"}), "4f5e485a2c18ea5398115c91f4992a69", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request uses the MISMO translator"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "dd9c1decb63a6053bc7ff84bf17f517b"}), "2e2b5ae33e530851a6731c20c26f7acf", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request payload is the inline content of file \"sample-loan-application.xml\" a" +
+                                                        "57ea3b40aae3655dbae04c970bccdbbc"}), "93ddc12e7ff04e57a17ff91272d3e581", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request payload is the inline content of file \"sample-loan-application.xml\" a" +
                                                 "s \"Xml\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "009d26a0f9f6e750b77dd698fff84a54"}), "9ad5a1820e43b054955daef74f6ff950", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request uses the inline rules library from file \"MortgageEligibilityRules.jso" +
+                                                        "7222c67b84b5d551b8a21e68fd8569cb"}), "6e257db671e1c2519b80302481bd2098", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request uses the inline rules library from file \"MortgageEligibilityRules.jso" +
                                                 "n\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "230cbd2795165351b29ccda7ef013753"}), "6210902cda15a950b2ee2c51b4ae499b", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I post the evaluation request"),
+                                                        "d089748d2d91ae579895c72f4cdf76ab"}), "c755b30a15dfb45a8af248e886f67e43", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I post the evaluation request"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "3076e4e951611f5093599f2174d859c5"}), "a4d735dd32994f5c9e329f791a0399d0", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"OK\""),
+                                                        "e657d2c4cb969a5881151ee57ffa2de1"}), "2f2f21d6e58adb59be3910e50a59d568", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"OK\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "9d8663fceb9fb65588aaafc00fd3d9aa"}), "e8fd502cf394515ea5a40fd0a6ff80bb", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the total evaluated rules should be 3"),
+                                                        "2e62c7a1cc36935db061859257c69696"}), "4cdfdde8ef5b565bb8dc52f95fd902fe", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the total evaluated rules should be 3"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "34a4d49a702e6b5094173588ccd67d05"}), "1f8b49256267fb5e9ab75727e1d18716", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the matches should contain code \"BORR-001\"")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
-                                        "678a57cfa77eed5ca2b2a1497f933351"})),
-                        new global::Io.Cucumber.Messages.Types.Pickle("0e4adca946635e5d897cfe5f6ad72d8a", "Features/RuleServiceApi.feature", "Bad request when the model assembly is missing", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
+                                                        "2289578911eb4d5a9b6888ca7e02d861"}), "d6f08adfec8c0c53a7a239b0e6f90f46", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the matches should contain code \"BORR-001\"")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
+                                        "a7653cf599445b5db4d64608a1308432"})),
+                        new global::Io.Cucumber.Messages.Types.Pickle("c935a286f93846578af6047a2803cd7b", "Features/RuleServiceApi.feature", "Bad request when the model assembly is missing", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "543bebb2ef004e58bbe90a3839e0f7b1"}), "c1f61a9e56794b52855afe830aa7816b", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "a request referencing a missing model assembly \"DoesNotExist.dll\""),
+                                                        "505792399be35d548d698f0366fbdc71"}), "4634731aec36055eba3467ffca9c4f6e", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "a request referencing a missing model assembly \"DoesNotExist.dll\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "0347e3334d4ae45faef7ffea91961a83"}), "ec6b0cba5e056c5c974360d079011e34", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request payload is the inline content \"<MESSAGE />\" as \"Xml\""),
+                                                        "7a58a07117c0c559bab291c18a67b79a"}), "4e32d58fe80f8f5295ba3e67bc007b29", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request payload is the inline content \"<MESSAGE />\" as \"Xml\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "e8519c720387e65ab7ff1bd626430f50"}), "293ca460c6e9335182c9c6e3303d13cd", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request uses the rules library file \"MortgageEligibilityRules.json\""),
+                                                        "c85f4edf18ea9a5ba6713c0e3383044f"}), "8844d61422d7f652acbd315c7b0f26fd", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the request uses the rules library file \"MortgageEligibilityRules.json\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "1af62a0201d69c52a82eb035710378e0"}), "efb59cd1d71c0859ba665e536cc4d37e", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I post the evaluation request"),
+                                                        "ac84489508f26e58b788da67fdb00bc9"}), "07c9bf83a6b81b578ab473d9ad33741a", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I post the evaluation request"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "4e8cc219b0b4945bbe6090cb999fcd9d"}), "8e762c9ba3ed4952aed4c9eccd7f85d6", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"BadRequest\"")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
-                                        "5d1b8c667d55b45e9e09de74583db198"}))});
+                                                        "55e3eb6fdcb97457baa6f38af32fc878"}), "7dec9573e49c065aaeb1561846f1f5f7", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"BadRequest\"")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
+                                        "2a3ce6ac03bf0d59bddc2f62678ec266"})),
+                        new global::Io.Cucumber.Messages.Types.Pickle("268ae931e2a09d50bf88584a93089742", "Features/RuleServiceApi.feature", "A valid draft expression passes validation", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "515baf37107ad9508b298505c74e50ec"}), "b213a8c95f67f55a9ba15fdc2c17ad77", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "a validation request for the \"Mortgage.Model\" loan application model"),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "fbd7893019f1a656870d9007f677ab5b"}), "a057c05f526dbc508fc39deac4873f86", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the draft expression is \"Terms.RequestedLoanAmount <= 500000\""),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "b795539fc688c85497395df43959bbb8"}), "787dc96db79cbb5fbb89d248217c05d9", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the draft result code is \"AMT-001\" and message \"Within limit\""),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "80c08e46b08c0a5ea8b6fa747f354edc"}), "5bd271a1679ffb5dace913e042f301e7", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I post the validation request"),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "c270bf44d7d42a55bcccb72ed274ab6f"}), "6a58995672a4db5db9f0093ec47fae89", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"OK\""),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "9d948cf7fb824a57bd71d96f3e3b5e9e"}), "562f51b88805a555a396772661dce483", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the draft should be valid"),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "77f62b3c47ca0754809a603a87c4bb6a"}), "d8759351ceeda1578574216df371253c", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the validation should report 0 errors")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
+                                        "50ce58709111a05d83ded8ee6ecd8c06"})),
+                        new global::Io.Cucumber.Messages.Types.Pickle("d9dd867f7493c05b9656050eba1e5a33", "Features/RuleServiceApi.feature", "A draft expression with an unknown property is rejected", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "8a4f6dfed5fd885faa972efe8194b6b8"}), "e83fde02b105a3549c7876d59564232c", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "a validation request for the \"Mortgage.Model\" loan application model"),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "fcf33671f5ae8e578c95e42e4ac925d9"}), "067df5c44bed2553b82449deb9b79495", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the draft expression is \"Terms.NotARealProperty > 10\""),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "877cc2b184790e599b4c891b9b30bec1"}), "be4f98b421321058b3900e257a61427d", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I post the validation request"),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "9cd1864fc0861a53a5c3a72ccf5769a3"}), "8a6f4bd247a97a5ea049757fa4d5d40d", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"OK\""),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "c630d4d25abec355b870e2519641a274"}), "d8b93a30403c455fb89e5fb690e4168d", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the draft should be invalid"),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "3a53f02e36e2455c831a5637aa2e0122"}), "5e244e6409e66755b4fe0b0e65cca6c0", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the validation issues should contain \"NotARealProperty\"")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
+                                        "61fd764df444175da25084c8c74497d0"})),
+                        new global::Io.Cucumber.Messages.Types.Pickle("ceba152650558f5eb714989bbdcfbfa0", "Features/RuleServiceApi.feature", "A draft expression with unbalanced parentheses is rejected", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "4ba508ee65bc4657bbb26feb8fd89342"}), "81f1038c1e6cf456b6bd1c36de8d3e62", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "a validation request for the \"Mortgage.Model\" loan application model"),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "b87a83af30dad558a8c219e2a0f1d930"}), "a03f77a3cc03ef54a3874fca309e20d0", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the draft expression is \"(Terms.RequestedLoanAmount <= 500000\""),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "222011a46f409c59bdad2eeb99edb2ec"}), "feec5be4ed96d454bf3508031e8368f6", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I post the validation request"),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "f0dfd7e5b2735b50bec8f797f2fa180a"}), "a65782aa932f03598885ac03132e3cea", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"OK\""),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "6b70e7950daa515f8d5eeca2656621f8"}), "b71a603e84103057a742ab63de97a0e9", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the draft should be invalid")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
+                                        "7d72b0e159a0c8589691ab4fe8b64797"})),
+                        new global::Io.Cucumber.Messages.Types.Pickle("bc3c1c0c75f8935eac0cee67f103e0b1", "Features/RuleServiceApi.feature", "An entire rules library is validated", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "5154ee6eff43445bac990240883081be"}), "6402ee904cffea56a079edabaeadb312", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "a library validation request using the inline rules library from file \"MortgageEl" +
+                                                "igibilityRules.json\""),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "2ab82e1d519298589d7f4f3f2f1817c9"}), "d49ea2b31e833c5a8bc5ec9338dea734", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I post the library validation request"),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "3f8132b87b64bd539af8af5e4eb49882"}), "4217a3f29068ad56b68ae5407abc44ef", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the response status should be \"OK\""),
+                                        new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
+                                                        "c9b0392e54ab1452bc81ce8113791f99"}), "c431333bdbe17354b62524efbe010e70", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the draft should be valid")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
+                                        "af31bfa2d1a5725e80481b93dd1bfb8d"}))});
         }
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
@@ -457,6 +555,173 @@ this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
 #line 40
  await testRunner.ThenAsync("the response status should be \"BadRequest\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::Xunit.SkippableFactAttribute(DisplayName="A valid draft expression passes validation")]
+        [global::Xunit.TraitAttribute("FeatureTitle", "Rule Service API")]
+        [global::Xunit.TraitAttribute("Description", "A valid draft expression passes validation")]
+        public async global::System.Threading.Tasks.Task AValidDraftExpressionPassesValidation()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "4";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A valid draft expression passes validation", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 42
+this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 43
+ await testRunner.GivenAsync("a validation request for the \"Mortgage.Model\" loan application model", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 44
+ await testRunner.AndAsync("the draft expression is \"Terms.RequestedLoanAmount <= 500000\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 45
+ await testRunner.AndAsync("the draft result code is \"AMT-001\" and message \"Within limit\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 46
+ await testRunner.WhenAsync("I post the validation request", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 47
+ await testRunner.ThenAsync("the response status should be \"OK\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 48
+ await testRunner.AndAsync("the draft should be valid", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 49
+ await testRunner.AndAsync("the validation should report 0 errors", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::Xunit.SkippableFactAttribute(DisplayName="A draft expression with an unknown property is rejected")]
+        [global::Xunit.TraitAttribute("FeatureTitle", "Rule Service API")]
+        [global::Xunit.TraitAttribute("Description", "A draft expression with an unknown property is rejected")]
+        public async global::System.Threading.Tasks.Task ADraftExpressionWithAnUnknownPropertyIsRejected()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "5";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A draft expression with an unknown property is rejected", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 51
+this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 52
+ await testRunner.GivenAsync("a validation request for the \"Mortgage.Model\" loan application model", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 53
+ await testRunner.AndAsync("the draft expression is \"Terms.NotARealProperty > 10\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 54
+ await testRunner.WhenAsync("I post the validation request", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 55
+ await testRunner.ThenAsync("the response status should be \"OK\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 56
+ await testRunner.AndAsync("the draft should be invalid", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 57
+ await testRunner.AndAsync("the validation issues should contain \"NotARealProperty\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::Xunit.SkippableFactAttribute(DisplayName="A draft expression with unbalanced parentheses is rejected")]
+        [global::Xunit.TraitAttribute("FeatureTitle", "Rule Service API")]
+        [global::Xunit.TraitAttribute("Description", "A draft expression with unbalanced parentheses is rejected")]
+        public async global::System.Threading.Tasks.Task ADraftExpressionWithUnbalancedParenthesesIsRejected()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "6";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A draft expression with unbalanced parentheses is rejected", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 59
+this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 60
+ await testRunner.GivenAsync("a validation request for the \"Mortgage.Model\" loan application model", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 61
+ await testRunner.AndAsync("the draft expression is \"(Terms.RequestedLoanAmount <= 500000\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 62
+ await testRunner.WhenAsync("I post the validation request", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 63
+ await testRunner.ThenAsync("the response status should be \"OK\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 64
+ await testRunner.AndAsync("the draft should be invalid", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::Xunit.SkippableFactAttribute(DisplayName="An entire rules library is validated")]
+        [global::Xunit.TraitAttribute("FeatureTitle", "Rule Service API")]
+        [global::Xunit.TraitAttribute("Description", "An entire rules library is validated")]
+        public async global::System.Threading.Tasks.Task AnEntireRulesLibraryIsValidated()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "7";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("An entire rules library is validated", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 66
+this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 67
+ await testRunner.GivenAsync("a library validation request using the inline rules library from file \"MortgageEl" +
+                        "igibilityRules.json\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 68
+ await testRunner.WhenAsync("I post the library validation request", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 69
+ await testRunner.ThenAsync("the response status should be \"OK\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 70
+ await testRunner.AndAsync("the draft should be valid", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

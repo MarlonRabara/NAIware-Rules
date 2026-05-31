@@ -1,14 +1,26 @@
 namespace NAIware.RuleIntelligence;
 
 /// <summary>
-/// Default standalone completion service.
+/// Default, stateless completion service that turns a <see cref="RuleCompletionRequest"/> into a ranked
+/// list of <see cref="RuleCompletionItem"/> suggestions for a rule-expression editor.
 /// </summary>
+/// <remarks>
+/// The service orchestrates three collaborators: a <see cref="RuleCompletionContextParser"/> classifies
+/// the caret position, an <see cref="IRuleOperatorProvider"/> supplies comparison/logical operators, and
+/// an <see cref="IRuleValueSuggestionProvider"/> supplies literal value suggestions. The resulting
+/// candidates are de-duplicated, scored against the typed prefix, and truncated to the requested maximum.
+/// Because it holds no per-request state, a single instance is safe to share.
+/// </remarks>
 public sealed class RuleIntelliSenseService : IRuleIntelliSenseService
 {
     private readonly IRuleOperatorProvider _operatorProvider;
     private readonly IRuleValueSuggestionProvider _valueSuggestionProvider;
     private readonly RuleCompletionContextParser _parser;
 
+    /// <summary>
+    /// Creates the service, falling back to the default operator and value-suggestion providers when none
+    /// are supplied.
+    /// </summary>
     public RuleIntelliSenseService(
         IRuleOperatorProvider? operatorProvider = null,
         IRuleValueSuggestionProvider? valueSuggestionProvider = null)
@@ -18,6 +30,14 @@ public sealed class RuleIntelliSenseService : IRuleIntelliSenseService
         _parser = new RuleCompletionContextParser(_operatorProvider);
     }
 
+    /// <summary>
+    /// Computes ranked completion suggestions for the supplied request.
+    /// </summary>
+    /// <param name="request">The completion request (expression, caret, schema, and limits).</param>
+    /// <returns>
+    /// A response carrying the analyzed context, the filtered/ranked items, and the replacement span the
+    /// editor should overwrite when a suggestion is accepted.
+    /// </returns>
     public RuleCompletionResponse GetCompletions(RuleCompletionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -42,23 +62,35 @@ public sealed class RuleIntelliSenseService : IRuleIntelliSenseService
         };
     }
 
+    /// <summary>
+    /// Analyzes the caret position without producing suggestions, returning the classified completion context.
+    /// Useful for editors that want to drive UI affordances from the context kind alone.
+    /// </summary>
     public RuleCompletionContext Analyze(RuleCompletionRequest request)
     {
         var resolver = new RulePathResolver(request.Schema);
         return _parser.Parse(request, resolver);
     }
 
+    /// <summary>Resolves a path against a schema to its node, or <see langword="null"/> when not found.</summary>
     public RuleCompletionNode? ResolvePath(RuleSchema schema, string path)
     {
         var resolver = new RulePathResolver(schema);
         return resolver.Resolve(path);
     }
 
+    /// <summary>
+    /// No-op for this stateless service. Schema providers that cache may expose their own invalidation.
+    /// </summary>
     public void Invalidate()
     {
         // Stateless by default. Schema providers may maintain their own cache.
     }
 
+    /// <summary>
+    /// Produces the raw, unranked candidate items appropriate for the classified context kind: root symbols,
+    /// member access children, type-aware comparison operators, value suggestions, or logical connectors.
+    /// </summary>
     private IReadOnlyList<RuleCompletionItem> GetCandidateItems(RuleCompletionRequest request, RuleCompletionContext context)
     {
         return context.Kind switch
@@ -130,6 +162,10 @@ public sealed class RuleIntelliSenseService : IRuleIntelliSenseService
         return items;
     }
 
+    /// <summary>
+    /// De-duplicates candidates (by kind/label/insert-text), scores each against the typed prefix, drops
+    /// non-matching items (score &lt;= 0), and yields the survivors with their score attached for ordering.
+    /// </summary>
     private static IEnumerable<RuleCompletionItem> FilterAndRank(IEnumerable<RuleCompletionItem> candidates, string prefix)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -147,6 +183,11 @@ public sealed class RuleIntelliSenseService : IRuleIntelliSenseService
         }
     }
 
+    /// <summary>
+    /// Scores a candidate against the typed prefix. With no prefix, items are ranked by kind (properties and
+    /// collections first). With a prefix, an exact match scores highest, then prefix match, then a substring
+    /// match; a non-match scores zero so it is filtered out.
+    /// </summary>
     private static int Score(RuleCompletionItem item, string prefix)
     {
         if (string.IsNullOrWhiteSpace(prefix))

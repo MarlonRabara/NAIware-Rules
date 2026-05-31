@@ -95,7 +95,17 @@ public class Engine : EngineBase
     /// <summary>Executes against a specific group.</summary>
     public List<Identification> Execute(string? targetGroup) => Execute(targetGroup, null);
 
-    /// <summary>Executes against a specific group with parameters.</summary>
+    /// <summary>
+    /// Executes the rules in the specified group (or all rules when no group is given) and returns the
+    /// identifications of every rule tree that evaluated to <see langword="true"/>.
+    /// </summary>
+    /// <param name="targetGroup">The rule group to execute, or <see langword="null"/> for all rules.</param>
+    /// <param name="parameters">
+    /// Optional per-call parameters. When <see langword="null"/>, the engine's shared <see cref="EngineBase.Parameters"/>
+    /// are used and access is serialized with a lock to keep concurrent evaluations consistent. When supplied,
+    /// the parameters are passed by reference to each rule tree and no shared-state lock is taken.
+    /// </param>
+    /// <returns>The identifications of the rules that matched.</returns>
     public List<Identification> Execute(string? targetGroup, Parameters? parameters)
     {
         List<Identification> idents = [];
@@ -143,7 +153,30 @@ public class Engine : EngineBase
     /// <summary>Parses an expression string into a rule tree.</summary>
     public RuleTree? Parse(string expression) => Parse(Helper.GetTokens(expression));
 
-    /// <summary>Parses tokens into a rule tree.</summary>
+    /// <summary>
+    /// Parses a token list into a boolean <see cref="RuleTree"/> using a shift-reduce strategy.
+    /// </summary>
+    /// <param name="tokens">The tokenized expression. This list is consumed (mutated) during parsing.</param>
+    /// <returns>The parsed rule tree, or <see langword="null"/> if the expression is empty.</returns>
+    /// <remarks>
+    /// <para>
+    /// Two stacks are maintained: an operand stack (<c>expstack</c>) holding tokens and partially built
+    /// <see cref="IExpression{Boolean}"/> nodes, and an operator stack (<c>operationstack</c>) recording
+    /// the pending comparison/logical operator or a deferred grouping marker. On each iteration the parser
+    /// attempts the highest-priority reduction it can before shifting the next input token:
+    /// </para>
+    /// <list type="number">
+    ///   <item><description><b>Simple rule</b> — <c>lhs op rhs</c> with a comparison operator reduces to a simple expression.</description></item>
+    ///   <item><description><b>Complex rule</b> — <c>rule (and|or) rule</c> reduces to a complex expression.</description></item>
+    ///   <item><description><b>Grouping</b> — a balanced <c>( expr )</c> reduces to the inner expression, flagged with parentheses.</description></item>
+    /// </list>
+    /// <para>
+    /// When no reduction applies, the next token is shifted and classified (operator vs. operand). Parsing
+    /// continues until the input is exhausted and the operand stack holds a single node. Any
+    /// <see cref="InvalidOperationException"/> raised by malformed input is rethrown as a
+    /// <see cref="FormatException"/> describing the parse failure.
+    /// </para>
+    /// </remarks>
     public RuleTree? Parse(List<string> tokens)
     {
         System.Collections.Stack expstack = new();

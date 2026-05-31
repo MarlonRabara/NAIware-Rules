@@ -189,6 +189,70 @@ var processor = new LogicProcessorEngine("MyMethod(X * 2)", methodMap, parameter
 decimal result = processor.Evaluate<decimal>();
 ```
 
+### Default Formula Methods
+
+`NAIware.Rules.MethodWrappers` ships a standard library of formula functions that can be registered with the logic processor. Use `DefaultMethodWrapperRegistration` to obtain a pre-populated `MethodMap`:
+
+```csharp
+using NAIware.Rules.MethodWrappers;
+
+MethodMap methodMap = DefaultMethodWrapperRegistration.CreateDefaultMethodMap();
+
+var processor = new LogicProcessorEngine("MAX(ABS(-10), 5)", methodMap, new Parameters());
+decimal result = processor.Evaluate<decimal>(); // 10
+```
+
+`RegisterDefaults(existingMap)` adds the same functions to a map you already own.
+
+**Logical**
+
+| Function | Arguments | Behavior | Example | Result |
+| -------- | --------- | -------- | ------- | ------ |
+| `IF` | `condition, whenTrue, whenFalse` | Returns `whenTrue` when the boolean condition is true, otherwise `whenFalse`. | `IF(1 = 1, 100, 200)` | `100` |
+
+**Numeric**
+
+| Function | Arguments | Behavior | Example | Result |
+| -------- | --------- | -------- | ------- | ------ |
+| `INT` | `value` | Converts a numeric value to a 32-bit integer (`Convert.ToInt32`). | `INT(10.7)` | `11` |
+| `ROUND` | `value, decimals` | Rounds to the given decimals using banker's rounding (`Math.Round`). | `ROUND(10.567, 2)` | `10.57` |
+| `ROUNDUP` | `value, decimals` | Rounds up (away from zero) to the given decimals (`MathHelper.RoundUp`). | `ROUNDUP(10.561, 2)` | `10.57` |
+| `MIN` | `left, right` | Returns the smaller of two values (`Math.Min`). | `MIN(5, 10)` | `5` |
+| `MAX` | `left, right` | Returns the larger of two values (`Math.Max`). | `MAX(5, 10)` | `10` |
+| `ABS` | `value` | Returns the absolute value (`Math.Abs`). | `ABS(-15)` | `15` |
+| `SUM` | `a, b, ...` | Returns the sum of all numeric arguments. | `SUM(1, 2, 3)` | `6` |
+| `AVERAGE` | `a, b, ...` | Returns the arithmetic mean of all numeric arguments. | `AVERAGE(2, 4, 6)` | `4` |
+| `POWER` | `base, exponent` | Raises `base` to `exponent` (`Math.Pow`). | `POWER(2, 3)` | `8` |
+| `CEILING` | `value` | Smallest integer ≥ `value` (`Math.Ceiling`). | `CEILING(4.1)` | `5` |
+| `FLOOR` | `value` | Largest integer ≤ `value` (`Math.Floor`). | `FLOOR(4.9)` | `4` |
+
+**Text**
+
+| Function | Arguments | Behavior | Example | Result |
+| -------- | --------- | -------- | ------- | ------ |
+| `CONCAT` | `a, b, ...` | Joins the string form of all arguments. | `CONCAT("Hello", " ", "World")` | `Hello World` |
+| `TRIM` | `text` | Removes leading and trailing whitespace. | `TRIM("  x  ")` | `x` |
+| `REPLACE` | `text, start, length, replacement` | Replaces `length` chars from 1-based `start` with `replacement`. | `REPLACE("abcdef", 2, 3, "XY")` | `aXYef` |
+| `SUBSTITUTE` | `text, oldText, newText` | Replaces every occurrence of `oldText` (ordinal, case-sensitive). | `SUBSTITUTE("a-b-c", "-", "+")` | `a+b+c` |
+| `LEFT` | `text, count` | Returns the leftmost `count` characters. | `LEFT("abcdef", 3)` | `abc` |
+| `RIGHT` | `text, count` | Returns the rightmost `count` characters. | `RIGHT("abcdef", 3)` | `def` |
+| `MID` | `text, start, length` | Returns `length` chars from 1-based `start`. | `MID("abcdef", 2, 3)` | `bcd` |
+| `UPPER` | `text` | Converts to upper case. | `UPPER("abc")` | `ABC` |
+| `LOWER` | `text` | Converts to lower case. | `LOWER("ABC")` | `abc` |
+| `PROPER` | `text` | Converts to title case. | `PROPER("hello WORLD")` | `Hello World` |
+
+**Date / time**
+
+| Function | Arguments | Behavior | Example | Result |
+| -------- | --------- | -------- | ------- | ------ |
+| `NOW` | _(none)_ | Returns the current local date and time. | `NOW()` | _current `DateTime`_ |
+| `TODAY` | _(none)_ | Returns the current local date at midnight. | `TODAY()` | _current date_ |
+| `DATEDIFF` | `unit, startDate, endDate` | Whole-unit difference `endDate - startDate`. Units: `year`, `month`, `day`, `hour`, `minute`, `second` (with common aliases). | `DATEDIFF("day", "2024-01-01", "2024-01-31")` | `30` |
+
+> `NOW` and `TODAY` are non-deterministic. For deterministic rule evaluation, prefer injecting the current date/time as a parameter.
+
+Function names are case-insensitive and can be nested, e.g. `MIN(ROUND(10.567, 2), 20)`.
+
 ### Mortgage Processing (Complex-Type Extraction)
 
 This example demonstrates how `ParameterFactory` automatically extracts parameters from nested domain objects — including complex child objects and collections — so that rule expressions can reference them with dot-notation.
@@ -420,11 +484,20 @@ rules library (JSON)         ──▶  RulesLibraryLoader           ──▶  
                                                    RuleProcessor  ──▶  EvaluateModelResponse
 ```
 
-### Endpoint
+### Endpoints
 
-`POST /api/rules/evaluate` accepts an `EvaluateModelRequest` and returns an `EvaluateModelResponse` (matches, mismatches with optional diagnostics, errors, and warnings). `GET /api/rules/health` is a liveness probe.
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/rules/evaluate` | Accepts an `EvaluateModelRequest` and returns an `EvaluateModelResponse` (matches, mismatches with optional diagnostics, errors, and warnings). |
+| `POST /api/rules/validate` | Accepts a `ValidateExpressionRequest` (model assembly/type plus a draft expression) and returns a `ValidationResponse`. Lets a formula be drafted and checked before it is saved — no rules library required. |
+| `POST /api/rules/validate-library` | Accepts a `ValidateLibraryRequest` (inline `LibraryJson` or `LibraryPath`) and returns a `ValidationResponse` for every expression in the library. |
+| `GET /api/rules/health` | Liveness probe. |
 
-The request supplies the model assembly/type, the model payload (inline `Payload` or a `PayloadPath`), the rules library (inline `LibraryJson` or a `LibraryPath`), and an optional custom translator. When a translator is configured (`SerializerAssemblyPath` + `SerializerQualifiedTypeName`), the service invokes its `Deserialize(string filePath)` method via reflection — the same contract the Rule Editor uses — so MISMO-style translators (e.g. `Mortgage.Model.Translators.MISMO`) work unchanged. Otherwise it falls back to `System.Text.Json` / `XmlSerializer`.
+The evaluate request supplies the model assembly/type, the model payload (inline `Payload` or a `PayloadPath`), the rules library (inline `LibraryJson` or a `LibraryPath`), and an optional custom translator. When a translator is configured (`SerializerAssemblyPath` + `SerializerQualifiedTypeName`), the service invokes its `Deserialize(string filePath)` method via reflection — the same contract the Rule Editor uses — so MISMO-style translators (e.g. `Mortgage.Model.Translators.MISMO`) work unchanged. Otherwise it falls back to `System.Text.Json` / `XmlSerializer`.
+
+### Validation
+
+The validation endpoints run the same compiler-style checks the Rule Editor uses, because both hosts share `NAIware.Rules.Validation.RuleValidationService`. The service resolves the model `Type` through `AssemblyContextMetadataProvider` (an `IContextMetadataProvider` backed by the collectible assembly loader) and reports property-path, parenthesis, and operand-type issues as `ValidationIssue` records. `ValidationResponse.IsValid` is `true` when there are no `Error`-severity issues; warnings (such as a missing result definition) do not block a draft.
 
 Model and translator assemblies are loaded on demand into collectible `AssemblyLoadContext` instances that preserve a single `Type` identity across related DLLs, mirroring the editor's `AssemblyTypeDiscoveryService`.
 

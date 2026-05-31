@@ -1,4 +1,5 @@
 using NAIware.RuleIntelligence;
+using NAIware.Rules.Validation;
 
 namespace NAIware.RuleEditor;
 
@@ -9,11 +10,12 @@ namespace NAIware.RuleEditor;
 /// </summary>
 /// <remarks>
 /// Reflection, path generation, operator selection, and value suggestions are all delegated to
-/// <see cref="RuleIntelliSenseService"/>. The legacy <see cref="ContextMetadata"/> surface is
-/// preserved so <see cref="RuleValidationService"/> continues to work unchanged; its property
-/// path list is derived from the schema rather than rebuilt locally.
+/// <see cref="RuleIntelliSenseService"/>. The <see cref="ContextMetadata"/> surface is exposed via
+/// <see cref="IContextMetadataProvider"/> so the shared <see cref="RuleValidationService"/> can run
+/// against the editor's reflected schema; its property path list is derived from the schema rather
+/// than rebuilt locally.
 /// </remarks>
-public sealed class IntelliSenseService
+public sealed class IntelliSenseService : IContextMetadataProvider
 {
     private readonly AssemblyTypeDiscoveryService _typeDiscovery;
     private readonly IRuleSchemaProvider _schemaProvider;
@@ -124,11 +126,4 @@ public sealed class IntelliSenseService
 
     private sealed record CachedContext(RuleSchema Schema, ContextMetadata Metadata);
 }
-
-/// <summary>
-/// Cached reflection data for a context type. Both IntelliSense and validation consume this.
-/// </summary>
-/// <param name="Type">The resolved .NET type.</param>
-/// <param name="PropertyPaths">All reachable property paths up to a configured depth.</param>
-public sealed record ContextMetadata(Type Type, IReadOnlyList<string> PropertyPaths);
 

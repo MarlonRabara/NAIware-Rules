@@ -1,12 +1,19 @@
 using System.Text.RegularExpressions;
+using NAIware.Rules.Models;
 
-namespace NAIware.RuleEditor;
+namespace NAIware.Rules.Validation;
 
 /// <summary>
-/// Validates an entire rule library the way a compiler validates a project build.
+/// Validates rule libraries and individual draft expressions the way a compiler validates a build.
 /// Reports missing context types, invalid property paths, mismatched parentheses,
 /// type-incompatibility between operands, and incomplete result definitions.
 /// </summary>
+/// <remarks>
+/// The service is host-neutral: it depends only on <see cref="IContextMetadataProvider"/> to resolve
+/// a context's reflected <see cref="ContextMetadata"/>. The Rule Editor and the Rule Service each
+/// supply their own provider, so the same validation logic runs design-time in the editor and over
+/// HTTP in the service.
+/// </remarks>
 public sealed class RuleValidationService
 {
     private static readonly Regex PropertyLikeToken = new(
@@ -20,13 +27,14 @@ public sealed class RuleValidationService
     private static readonly HashSet<string> ValidLogicalKeywords =
         new(StringComparer.OrdinalIgnoreCase) { "and", "or", "not" };
 
-    private readonly IntelliSenseService _intellisense;
+    private readonly IContextMetadataProvider _metadataProvider;
 
     /// <summary>Initializes a new validation service.</summary>
-    public RuleValidationService(IntelliSenseService intellisense)
+    /// <param name="metadataProvider">The host-supplied provider that resolves context metadata.</param>
+    public RuleValidationService(IContextMetadataProvider metadataProvider)
     {
-        ArgumentNullException.ThrowIfNull(intellisense);
-        _intellisense = intellisense;
+        ArgumentNullException.ThrowIfNull(metadataProvider);
+        _metadataProvider = metadataProvider;
     }
 
     /// <summary>
@@ -42,7 +50,7 @@ public sealed class RuleValidationService
 
         foreach (RuleContext context in library.Contexts)
         {
-            ContextMetadata? metadata = _intellisense.GetMetadata(context);
+            ContextMetadata? metadata = _metadataProvider.GetMetadata(context);
             if (metadata is null)
             {
                 issues.Add(new ValidationIssue
@@ -61,6 +69,52 @@ public sealed class RuleValidationService
             }
         }
 
+        return issues;
+    }
+
+    /// <summary>
+    /// Validates a single draft expression against the supplied context without requiring it to be
+    /// attached to a library. This is the entry point for authoring scenarios where a formula is
+    /// drafted and checked before it is saved — for example, the Rule Service's validation endpoint.
+    /// </summary>
+    /// <param name="context">The context the expression is authored against.</param>
+    /// <param name="expression">The draft expression text.</param>
+    /// <param name="resultCode">Optional result code; when supplied with a message, suppresses the incomplete-result warning.</param>
+    /// <param name="resultMessage">Optional result message; when supplied with a code, suppresses the incomplete-result warning.</param>
+    /// <param name="ruleName">Optional display name used to label issues.</param>
+    /// <returns>A list of <see cref="ValidationIssue"/> records, empty when the draft is clean.</returns>
+    public List<ValidationIssue> ValidateExpression(
+        RuleContext context,
+        string expression,
+        string? resultCode = null,
+        string? resultMessage = null,
+        string? ruleName = null)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var issues = new List<ValidationIssue>();
+
+        ContextMetadata? metadata = _metadataProvider.GetMetadata(context);
+        if (metadata is null)
+        {
+            issues.Add(new ValidationIssue
+            {
+                Severity = "Error",
+                Context = context.Name,
+                Message = DescribeUnresolvedContext(context)
+            });
+            return issues;
+        }
+
+        var rule = new RuleExpression
+        {
+            Name = string.IsNullOrWhiteSpace(ruleName) ? "(draft)" : ruleName,
+            Expression = expression ?? string.Empty,
+            ResultCode = resultCode,
+            ResultMessage = resultMessage
+        };
+
+        ValidateRule(context, category: string.Empty, rule, metadata, issues);
         return issues;
     }
 

@@ -32,8 +32,11 @@ public sealed class RuleServiceApiSteps
     private static WebApplicationFactory<Program> _factory = null!;
 
     private readonly EvaluateModelRequest _request = new();
+    private readonly ValidateExpressionRequest _validateRequest = new();
+    private readonly ValidateLibraryRequest _validateLibraryRequest = new();
     private HttpResponseMessage _response = null!;
     private EvaluateModelResponse? _result;
+    private ValidationResponse? _validation;
 
     [BeforeTestRun]
     public static void StartService() => _factory = new WebApplicationFactory<Program>();
@@ -158,9 +161,93 @@ public sealed class RuleServiceApiSteps
         RequireResult().Mismatches.Should().Contain(m => m.ExpressionName == expressionName);
     }
 
+    [Given(@"a validation request for the ""(.*)"" loan application model")]
+    public void GivenAValidationRequestForTheLoanApplicationModel(string _)
+    {
+        _validateRequest.ModelAssemblyPath = TestResources.Path("Mortgage.Model.dll");
+        _validateRequest.ModelQualifiedTypeName = ModelTypeName;
+        _validateRequest.ContextName = "Loan";
+    }
+
+    [Given(@"the draft expression is ""(.*)""")]
+    public void GivenTheDraftExpressionIs(string expression)
+    {
+        _validateRequest.Expression = expression;
+    }
+
+    [Given(@"the draft result code is ""(.*)"" and message ""(.*)""")]
+    public void GivenTheDraftResultCodeAndMessage(string code, string message)
+    {
+        _validateRequest.ResultCode = code;
+        _validateRequest.ResultMessage = message;
+    }
+
+    [Given(@"a library validation request using the inline rules library from file ""(.*)""")]
+    public async Task GivenALibraryValidationRequestUsingTheInlineRulesLibrary(string fileName)
+    {
+        // The persisted library stores SourceAssemblyPath as a file name relative to the library;
+        // rewrite it to the absolute test-resource path so the service can reflect over the model.
+        string json = await File.ReadAllTextAsync(TestResources.Path(fileName));
+        string absoluteAssembly = TestResources.Path("Mortgage.Model.dll").Replace("\\", "\\\\");
+        json = json.Replace("\"Mortgage.Model.dll\"", $"\"{absoluteAssembly}\"");
+        _validateLibraryRequest.LibraryJson = json;
+    }
+
+    [When(@"I post the validation request")]
+    public async Task WhenIPostTheValidationRequest()
+    {
+        HttpClient client = _factory.CreateClient();
+        _response = await client.PostAsJsonAsync("/api/rules/validate", _validateRequest);
+
+        if (_response.StatusCode == HttpStatusCode.OK)
+        {
+            _validation = await _response.Content.ReadFromJsonAsync<ValidationResponse>();
+        }
+    }
+
+    [When(@"I post the library validation request")]
+    public async Task WhenIPostTheLibraryValidationRequest()
+    {
+        HttpClient client = _factory.CreateClient();
+        _response = await client.PostAsJsonAsync("/api/rules/validate-library", _validateLibraryRequest);
+
+        if (_response.StatusCode == HttpStatusCode.OK)
+        {
+            _validation = await _response.Content.ReadFromJsonAsync<ValidationResponse>();
+        }
+    }
+
+    [Then(@"the draft should be valid")]
+    public void ThenTheDraftShouldBeValid()
+    {
+        RequireValidation().IsValid.Should().BeTrue();
+    }
+
+    [Then(@"the draft should be invalid")]
+    public void ThenTheDraftShouldBeInvalid()
+    {
+        RequireValidation().IsValid.Should().BeFalse();
+    }
+
+    [Then(@"the validation should report (\d+) errors")]
+    public void ThenTheValidationShouldReportErrors(int errors)
+    {
+        RequireValidation().ErrorCount.Should().Be(errors);
+    }
+
+    [Then(@"the validation issues should contain ""(.*)""")]
+    public void ThenTheValidationIssuesShouldContain(string fragment)
+    {
+        RequireValidation().Issues.Should().Contain(i => i.Message.Contains(fragment));
+    }
+
     private EvaluateModelResponse RequireResult() =>
         _result ?? throw new InvalidOperationException(
             "No evaluation result was parsed. The response status was " + _response.StatusCode + ".");
+
+    private ValidationResponse RequireValidation() =>
+        _validation ?? throw new InvalidOperationException(
+            "No validation result was parsed. The response status was " + _response.StatusCode + ".");
 
     private static ModelPayloadFormat ParseFormat(string format) =>
         Enum.Parse<ModelPayloadFormat>(format, ignoreCase: true);

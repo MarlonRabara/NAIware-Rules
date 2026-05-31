@@ -12,6 +12,12 @@ builder.Services.AddScoped<ModelDeserializationService>();
 builder.Services.AddScoped<RulesLibraryLoader>();
 builder.Services.AddScoped<RuleEvaluationService>();
 
+// Rule authoring/validation: the metadata provider resolves model types via the shared loader,
+// and the validation service runs the same NAIware.Rules.Validation logic the editor uses.
+builder.Services.AddScoped<NAIware.Rules.Validation.IContextMetadataProvider, AssemblyContextMetadataProvider>();
+builder.Services.AddScoped<NAIware.Rules.Validation.RuleValidationService>();
+builder.Services.AddScoped<RuleValidationApiService>();
+
 WebApplication app = builder.Build();
 
 app.MapControllers();
