@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -22,8 +22,13 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\NAIware.Core\NAIware.Core.csproj" />
     <ProjectReference Include="..\..\src\NAIware.Rules\NAIware.Rules.csproj" />
+    <ProjectReference Include="..\..\src\NAIware.RuleIntelligence\NAIware.RuleIntelligence.csproj" />
     <ProjectReference Include="..\..\src\NAIware.RuleService\NAIware.RuleService.csproj" />
     <ProjectReference Include="..\DocAnalysis.Models\DocumentAnalysis.Models.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Repro\" />
   </ItemGroup>
 
 </Project>

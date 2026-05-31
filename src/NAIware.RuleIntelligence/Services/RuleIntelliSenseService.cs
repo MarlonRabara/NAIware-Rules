@@ -15,18 +15,21 @@ public sealed class RuleIntelliSenseService : IRuleIntelliSenseService
 {
     private readonly IRuleOperatorProvider _operatorProvider;
     private readonly IRuleValueSuggestionProvider _valueSuggestionProvider;
+    private readonly IRuleFunctionProvider _functionProvider;
     private readonly RuleCompletionContextParser _parser;
 
     /// <summary>
-    /// Creates the service, falling back to the default operator and value-suggestion providers when none
-    /// are supplied.
+    /// Creates the service, falling back to the default operator, value-suggestion, and function providers
+    /// when none are supplied.
     /// </summary>
     public RuleIntelliSenseService(
         IRuleOperatorProvider? operatorProvider = null,
-        IRuleValueSuggestionProvider? valueSuggestionProvider = null)
+        IRuleValueSuggestionProvider? valueSuggestionProvider = null,
+        IRuleFunctionProvider? functionProvider = null)
     {
         _operatorProvider = operatorProvider ?? new DefaultRuleOperatorProvider();
         _valueSuggestionProvider = valueSuggestionProvider ?? new DefaultRuleValueSuggestionProvider();
+        _functionProvider = functionProvider ?? new DefaultRuleFunctionProvider();
         _parser = new RuleCompletionContextParser(_operatorProvider);
     }
 
@@ -96,7 +99,9 @@ public sealed class RuleIntelliSenseService : IRuleIntelliSenseService
         return context.Kind switch
         {
             RuleCompletionContextKind.RootSymbol =>
-                GetRootItems(request.Schema, request.IncludeSnippets),
+                GetRootItems(request.Schema, request.IncludeSnippets)
+                    .Concat(GetFunctionItems())
+                    .ToList(),
 
             RuleCompletionContextKind.MemberAccess =>
                 GetMemberItems(context.TargetNode, request.IncludeSnippets),
@@ -113,7 +118,9 @@ public sealed class RuleIntelliSenseService : IRuleIntelliSenseService
                 {
                     Schema = request.Schema,
                     CompletionContext = context
-                }),
+                })
+                .Concat(GetFunctionItems())
+                .ToList(),
 
             RuleCompletionContextKind.LogicalConnector =>
                 _operatorProvider.GetLogicalOperators()
@@ -163,7 +170,17 @@ public sealed class RuleIntelliSenseService : IRuleIntelliSenseService
     }
 
     /// <summary>
-    /// De-duplicates candidates (by kind/label/insert-text), scores each against the typed prefix, drops
+    /// Produces completion items for every registered formula function. Functions are valid wherever an
+    /// expression or operand is expected (the root symbol position and the right-hand side of a comparison).
+    /// </summary>
+    private IReadOnlyList<RuleCompletionItem> GetFunctionItems()
+    {
+        return _functionProvider.GetFunctions()
+            .Select(f => f.ToCompletionItem())
+            .ToList();
+    }
+
+    /// <summary>
     /// non-matching items (score &lt;= 0), and yields the survivors with their score attached for ordering.
     /// </summary>
     private static IEnumerable<RuleCompletionItem> FilterAndRank(IEnumerable<RuleCompletionItem> candidates, string prefix)
@@ -198,6 +215,7 @@ public sealed class RuleIntelliSenseService : IRuleIntelliSenseService
                 RuleCompletionItemKind.RootObject => 75,
                 RuleCompletionItemKind.Operator => 70,
                 RuleCompletionItemKind.LogicalOperator => 70,
+                RuleCompletionItemKind.Function => 65,
                 RuleCompletionItemKind.Literal => 60,
                 _ => 50
             };

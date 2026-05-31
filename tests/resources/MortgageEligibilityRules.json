@@ -6,6 +6,8 @@
   "SnapshotIdentity": "c2a5e3b1-6d4f-4b02-8c8e-3f7a9b1d2e45",
   "IsPublished": false,
   "State": "Draft",
+  "CreatedUtc": "2026-05-31T22:45:53.0693652+00:00",
+  "SavedUtc": "2026-05-31T22:46:57.1720242+00:00",
   "Contexts": [
     {
       "Identity": "32a8d79d-bbe9-4a15-be01-69d1076c4b30",
@@ -13,6 +15,7 @@
       "Description": "Mortgage loan application rules.",
       "QualifiedTypeName": "Mortgage.Model.Loans.LoanApplication, Mortgage.Model, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
       "SourceAssemblyPath": "Mortgage.Model.dll",
+      "AssemblyPath": "Mortgage.Model.dll",
       "SerializerAssemblyPath": "Mortgage.Model.Translators.MISMO.dll",
       "SerializerQualifiedTypeName": "Mortgage.Model.Translators.MISMO.MortgageFileMismoTranslator, Mortgage.Model.Translators.MISMO, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
       "Categories": [
@@ -39,45 +42,68 @@
       "Expressions": [
         {
           "Identity": "af20bccf-2ef2-4bdc-b8f4-92929ffcb560",
+          "Id": "af20bccf-2ef2-4bdc-b8f4-92929ffcb560",
           "Name": "Primary Borrower First Name",
           "Description": "Confirms the expected primary borrower.",
-          "Expression": "PrimaryBorrower.FirstName = \"Marlon\"",
+          "Expression": "LEFT(PrimaryBorrower.FirstName, 4) = \u0022Marl\u0022",
           "IsActive": true,
           "Priority": 10,
-          "Tags": [ "borrower" ],
+          "Tags": [
+            "borrower"
+          ],
           "ResultDefinition": {
             "Code": "BORR-001",
             "Message": "Primary borrower identified.",
             "Severity": "Info"
-          }
+          },
+          "ExpressionParameters": [],
+          "ResultCode": "BORR-001",
+          "ResultMessage": "Primary borrower identified.",
+          "Severity": "Info"
         },
         {
           "Identity": "bc31cdd0-3f03-4ced-c9a5-a3a30aafd671",
+          "Id": "bc31cdd0-3f03-4ced-c9a5-a3a30aafd671",
           "Name": "Loan Amount Within Limit",
           "Description": "Requested loan amount is within the conforming limit.",
-          "Expression": "Terms.RequestedLoanAmount <= 500000",
+          "Expression": "Terms.RequestedLoanAmount \u003C= 500000",
           "IsActive": true,
           "Priority": 20,
-          "Tags": [ "loan", "amount" ],
+          "Tags": [
+            "loan",
+            "amount"
+          ],
           "ResultDefinition": {
             "Code": "AMT-001",
             "Message": "Loan amount is within the conforming limit.",
             "Severity": "Info"
-          }
+          },
+          "ExpressionParameters": [],
+          "ResultCode": "AMT-001",
+          "ResultMessage": "Loan amount is within the conforming limit.",
+          "Severity": "Info"
         },
         {
           "Identity": "cd42dee1-4014-4dfe-dab6-b4b41bbcd782",
+          "Id": "cd42dee1-4014-4dfe-dab6-b4b41bbcd782",
           "Name": "High Balance Loan",
           "Description": "Flags loans above one million.",
-          "Expression": "Terms.RequestedLoanAmount > 1000000",
+          "Expression": "Terms.RequestedLoanAmount \u003E 1000000",
           "IsActive": true,
           "Priority": 30,
-          "Tags": [ "loan", "amount" ],
+          "Tags": [
+            "loan",
+            "amount"
+          ],
           "ResultDefinition": {
             "Code": "AMT-002",
             "Message": "High balance loan requires additional review.",
             "Severity": "Warning"
-          }
+          },
+          "ExpressionParameters": [],
+          "ResultCode": "AMT-002",
+          "ResultMessage": "High balance loan requires additional review.",
+          "Severity": "Warning"
         }
       ],
       "ParameterDefinitions": []
