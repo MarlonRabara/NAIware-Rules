@@ -6,7 +6,7 @@
 
 Scenario: Hydrate DocumentAnalysisPackage from sample file
 	Given the document analysis model assembly
-    And the reflected type "DocumentAnalysis.Model.DocumentAnalysisPackage"
+    And the reflected type "DocumentAnalysis.Models.DocumentAnalysisPackage"
     When I hydrate the reflected type
     Then the hydrated object should not be null
-    And the hydrated object type should be "DocumentAnalysis.Model.DocumentAnalysisPackage"
+    And the hydrated object type should be "DocumentAnalysis.Models.DocumentAnalysisPackage"

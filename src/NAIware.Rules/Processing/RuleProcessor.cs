@@ -158,15 +158,21 @@ public class RuleProcessor : IRuleProcessor
         result.Status = result.TotalEvaluated > 0 ? RuleEvaluationStatus.PartiallyCompleted : RuleEvaluationStatus.Failed;
     }
 
+    private static readonly MethodCallResolver MethodResolver = new();
+
     private static RuleExpressionResult EvaluateExpression(
         RuleExpression ruleExpression,
         Parameters runtimeParams,
         bool includeDiagnostics)
     {
+        // Pre-resolve any formula method calls (for example LEFT(...), ROUND(...)) into typed synthetic
+        // parameters so the boolean rule engine, which has no method support, can evaluate the comparison.
+        MethodResolutionResult resolved = MethodResolver.Resolve(ruleExpression.Expression, runtimeParams);
+
         // Create a fresh engine for this expression
         var engine = new Rules.Engine();
-        engine.Parameters.Add(runtimeParams);
-        engine.AddRule(ruleExpression.Expression, ruleExpression.Name);
+        engine.Parameters.Add(resolved.Parameters);
+        engine.AddRule(resolved.Expression, ruleExpression.Name);
 
         List<Identification> engineResults = engine.Execute();
         bool matched = engineResults.Exists(r => r.Name == ruleExpression.Name);

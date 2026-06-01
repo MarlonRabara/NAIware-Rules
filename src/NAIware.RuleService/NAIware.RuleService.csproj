@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+	<TargetFramework>net10.0</TargetFramework>
+	<LangVersion>12</LangVersion>
+	<Nullable>enable</Nullable>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<RootNamespace>NAIware.RuleService</RootNamespace>
+	<AssemblyName>NAIware.RuleService</AssemblyName>
+	<Description>NAIware Rule Service - HTTP API that evaluates serialized models (JSON/XML) against a rules library.</Description>
+	<Authors>NAIware</Authors>
+	<Product>NAIware Rules</Product>
+	<GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+	<ProjectReference Include="..\NAIware.Core\NAIware.Core.csproj" />
+	<ProjectReference Include="..\NAIware.Rules\NAIware.Rules.csproj" />
+  </ItemGroup>
+
+</Project>

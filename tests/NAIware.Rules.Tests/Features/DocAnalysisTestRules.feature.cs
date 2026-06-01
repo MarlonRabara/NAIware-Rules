@@ -115,10 +115,10 @@ namespace NAIware.Rules.Tests.Features
 
 Scenario: Hydrate DocumentAnalysisPackage from sample file
 	Given the document analysis model assembly
-    And the reflected type ""DocumentAnalysis.Model.DocumentAnalysisPackage""
+    And the reflected type ""DocumentAnalysis.Models.DocumentAnalysisPackage""
     When I hydrate the reflected type
     Then the hydrated object should not be null
-    And the hydrated object type should be ""DocumentAnalysis.Model.DocumentAnalysisPackage""", global::Io.Cucumber.Messages.Types.SourceMediaType.TEXT_X_CUCUMBER_GHERKIN_PLAIN);
+    And the hydrated object type should be ""DocumentAnalysis.Models.DocumentAnalysisPackage""", global::Io.Cucumber.Messages.Types.SourceMediaType.TEXT_X_CUCUMBER_GHERKIN_PLAIN);
         }
         
         private static global::Io.Cucumber.Messages.Types.GherkinDocument GherkinDocumentFunc()
@@ -127,30 +127,30 @@ Scenario: Hydrate DocumentAnalysisPackage from sample file
                         " And hydrate sample json data from a file\r\n    so that I can text various rule c" +
                         "ombinations", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.FeatureChild>(new global::Io.Cucumber.Messages.Types.FeatureChild[] {
                                 new global::Io.Cucumber.Messages.Types.FeatureChild(null, null, new global::Io.Cucumber.Messages.Types.Scenario(new global::Io.Cucumber.Messages.Types.Location(7, new System.Nullable<long>(1)), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Tag>(new global::Io.Cucumber.Messages.Types.Tag[0]), "Scenario", "Hydrate DocumentAnalysisPackage from sample file", "", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Step>(new global::Io.Cucumber.Messages.Types.Step[] {
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(8, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "the document analysis model assembly", null, null, "8d17c5f9ea0c3b54a7921287545e5df3"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(9, new System.Nullable<long>(5)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the reflected type \"DocumentAnalysis.Model.DocumentAnalysisPackage\"", null, null, "da8ad7b43529515f996507071a83fd61"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(10, new System.Nullable<long>(5)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I hydrate the reflected type", null, null, "8ee0b0fef87c395384cc29c0d7a04868"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(11, new System.Nullable<long>(5)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the hydrated object should not be null", null, null, "e84fcb21cdc315558106b79d752fa1d3"),
-                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(12, new System.Nullable<long>(5)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the hydrated object type should be \"DocumentAnalysis.Model.DocumentAnalysisPackag" +
-                                                            "e\"", null, null, "35d52d9cd1668751ab9764a763cfea80")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "70f8cd4146da8a51a90033a533671cd7"))})), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Comment>(new global::Io.Cucumber.Messages.Types.Comment[0]));
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(8, new System.Nullable<long>(2)), "Given ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONTEXT, "the document analysis model assembly", null, null, "65bf4646d8005753b470311fed30d255"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(9, new System.Nullable<long>(5)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the reflected type \"DocumentAnalysis.Models.DocumentAnalysisPackage\"", null, null, "b0c0099016c0735bad3917fa3920a5b5"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(10, new System.Nullable<long>(5)), "When ", global::Io.Cucumber.Messages.Types.StepKeywordType.ACTION, "I hydrate the reflected type", null, null, "6ab23d2c91f87c59befd0c5b2e925acb"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(11, new System.Nullable<long>(5)), "Then ", global::Io.Cucumber.Messages.Types.StepKeywordType.OUTCOME, "the hydrated object should not be null", null, null, "47a76ac992e275558453ba3f7185b5f8"),
+                                                    new global::Io.Cucumber.Messages.Types.Step(new global::Io.Cucumber.Messages.Types.Location(12, new System.Nullable<long>(5)), "And ", global::Io.Cucumber.Messages.Types.StepKeywordType.CONJUNCTION, "the hydrated object type should be \"DocumentAnalysis.Models.DocumentAnalysisPacka" +
+                                                            "ge\"", null, null, "95d82cf4e50be053a5b7f8cecaef8957")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Examples>(new global::Io.Cucumber.Messages.Types.Examples[0]), "7663e13ec8747b5998f132cc4c73cfe1"))})), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Comment>(new global::Io.Cucumber.Messages.Types.Comment[0]));
         }
         
         private static global::System.Collections.Generic.IEnumerable<Io.Cucumber.Messages.Types.Pickle> PicklesFunc()
         {
             return new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.Pickle>(new global::Io.Cucumber.Messages.Types.Pickle[] {
-                        new global::Io.Cucumber.Messages.Types.Pickle("87fe45ee7c284551a4b9d6c0b8af1da8", "Features/DocAnalysisTestRules.feature", "Hydrate DocumentAnalysisPackage from sample file", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
+                        new global::Io.Cucumber.Messages.Types.Pickle("b704ea88fab7ef50ba54e2f44fa707e9", "Features/DocAnalysisTestRules.feature", "Hydrate DocumentAnalysisPackage from sample file", "en-US", new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleStep>(new global::Io.Cucumber.Messages.Types.PickleStep[] {
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "8d17c5f9ea0c3b54a7921287545e5df3"}), "3d4f10ea56bfc65e94eff0cd6e260d69", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the document analysis model assembly"),
+                                                        "65bf4646d8005753b470311fed30d255"}), "e6b75580d5dc125492ec48642735dd1e", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the document analysis model assembly"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "da8ad7b43529515f996507071a83fd61"}), "3195b4e10e4d305383cdf4cdaeb13ed4", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the reflected type \"DocumentAnalysis.Model.DocumentAnalysisPackage\""),
+                                                        "b0c0099016c0735bad3917fa3920a5b5"}), "3d61ef71e6815e5f9991d351a59f6707", global::Io.Cucumber.Messages.Types.PickleStepType.CONTEXT, "the reflected type \"DocumentAnalysis.Models.DocumentAnalysisPackage\""),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "8ee0b0fef87c395384cc29c0d7a04868"}), "80dd5d0de446c15b85eb57e92fee4c26", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I hydrate the reflected type"),
+                                                        "6ab23d2c91f87c59befd0c5b2e925acb"}), "aa54b212374da95d8e6244419d999978", global::Io.Cucumber.Messages.Types.PickleStepType.ACTION, "I hydrate the reflected type"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "e84fcb21cdc315558106b79d752fa1d3"}), "c040e60383b8a954a93b59bb68ff3b0a", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the hydrated object should not be null"),
+                                                        "47a76ac992e275558453ba3f7185b5f8"}), "99da2f39213c9d57a16c314108282da3", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the hydrated object should not be null"),
                                         new global::Io.Cucumber.Messages.Types.PickleStep(null, new System.Collections.Generic.List<string>(new string[] {
-                                                        "35d52d9cd1668751ab9764a763cfea80"}), "688a0842e22c4f5d8724f529db66b1a5", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the hydrated object type should be \"DocumentAnalysis.Model.DocumentAnalysisPackag" +
-                                                "e\"")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
-                                        "70f8cd4146da8a51a90033a533671cd7"}))});
+                                                        "95d82cf4e50be053a5b7f8cecaef8957"}), "d41af5e7dae7755b95c0d5dc5206f8b0", global::Io.Cucumber.Messages.Types.PickleStepType.OUTCOME, "the hydrated object type should be \"DocumentAnalysis.Models.DocumentAnalysisPacka" +
+                                                "ge\"")}), new System.Collections.Generic.List<global::Io.Cucumber.Messages.Types.PickleTag>(new global::Io.Cucumber.Messages.Types.PickleTag[0]), new System.Collections.Generic.List<string>(new string[] {
+                                        "7663e13ec8747b5998f132cc4c73cfe1"}))});
         }
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
@@ -208,7 +208,7 @@ this.ScenarioInitialize(scenarioInfo, ruleInfo);
  await testRunner.GivenAsync("the document analysis model assembly", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 9
-    await testRunner.AndAsync("the reflected type \"DocumentAnalysis.Model.DocumentAnalysisPackage\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.AndAsync("the reflected type \"DocumentAnalysis.Models.DocumentAnalysisPackage\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 10
     await testRunner.WhenAsync("I hydrate the reflected type", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
@@ -217,8 +217,8 @@ this.ScenarioInitialize(scenarioInfo, ruleInfo);
     await testRunner.ThenAsync("the hydrated object should not be null", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
 #line 12
-    await testRunner.AndAsync("the hydrated object type should be \"DocumentAnalysis.Model.DocumentAnalysisPackag" +
-                        "e\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.AndAsync("the hydrated object type should be \"DocumentAnalysis.Models.DocumentAnalysisPacka" +
+                        "ge\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

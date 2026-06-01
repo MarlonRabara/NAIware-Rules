@@ -18,6 +18,7 @@ NAIware-Rules/
 │       ├── Runtime/           # Evaluation request/result models and diagnostics
 │       ├── Rules/             # Rules engine and rule trees
 │       └── Formulae/          # Formulae engine and formula trees
+│   └── NAIware.RuleService/   # ASP.NET Core Web API for evaluating serialized models against a library
 ├── tests/
 │   ├── NAIware.Core.Tests/    # BDD tests for core utilities
 │   └── NAIware.Rules.Tests/   # BDD tests for rules, formulae, mortgage processing, and rule processor
@@ -187,6 +188,70 @@ parameters.Add("X", new GenericParameter<decimal>("X", "Input", 10m));
 var processor = new LogicProcessorEngine("MyMethod(X * 2)", methodMap, parameters);
 decimal result = processor.Evaluate<decimal>();
 ```
+
+### Default Formula Methods
+
+`NAIware.Rules.MethodWrappers` ships a standard library of formula functions that can be registered with the logic processor. Use `DefaultMethodWrapperRegistration` to obtain a pre-populated `MethodMap`:
+
+```csharp
+using NAIware.Rules.MethodWrappers;
+
+MethodMap methodMap = DefaultMethodWrapperRegistration.CreateDefaultMethodMap();
+
+var processor = new LogicProcessorEngine("MAX(ABS(-10), 5)", methodMap, new Parameters());
+decimal result = processor.Evaluate<decimal>(); // 10
+```
+
+`RegisterDefaults(existingMap)` adds the same functions to a map you already own.
+
+**Logical**
+
+| Function | Arguments | Behavior | Example | Result |
+| -------- | --------- | -------- | ------- | ------ |
+| `IF` | `condition, whenTrue, whenFalse` | Returns `whenTrue` when the boolean condition is true, otherwise `whenFalse`. | `IF(1 = 1, 100, 200)` | `100` |
+
+**Numeric**
+
+| Function | Arguments | Behavior | Example | Result |
+| -------- | --------- | -------- | ------- | ------ |
+| `INT` | `value` | Converts a numeric value to a 32-bit integer (`Convert.ToInt32`). | `INT(10.7)` | `11` |
+| `ROUND` | `value, decimals` | Rounds to the given decimals using banker's rounding (`Math.Round`). | `ROUND(10.567, 2)` | `10.57` |
+| `ROUNDUP` | `value, decimals` | Rounds up (away from zero) to the given decimals (`MathHelper.RoundUp`). | `ROUNDUP(10.561, 2)` | `10.57` |
+| `MIN` | `left, right` | Returns the smaller of two values (`Math.Min`). | `MIN(5, 10)` | `5` |
+| `MAX` | `left, right` | Returns the larger of two values (`Math.Max`). | `MAX(5, 10)` | `10` |
+| `ABS` | `value` | Returns the absolute value (`Math.Abs`). | `ABS(-15)` | `15` |
+| `SUM` | `a, b, ...` | Returns the sum of all numeric arguments. | `SUM(1, 2, 3)` | `6` |
+| `AVERAGE` | `a, b, ...` | Returns the arithmetic mean of all numeric arguments. | `AVERAGE(2, 4, 6)` | `4` |
+| `POWER` | `base, exponent` | Raises `base` to `exponent` (`Math.Pow`). | `POWER(2, 3)` | `8` |
+| `CEILING` | `value` | Smallest integer ≥ `value` (`Math.Ceiling`). | `CEILING(4.1)` | `5` |
+| `FLOOR` | `value` | Largest integer ≤ `value` (`Math.Floor`). | `FLOOR(4.9)` | `4` |
+
+**Text**
+
+| Function | Arguments | Behavior | Example | Result |
+| -------- | --------- | -------- | ------- | ------ |
+| `CONCAT` | `a, b, ...` | Joins the string form of all arguments. | `CONCAT("Hello", " ", "World")` | `Hello World` |
+| `TRIM` | `text` | Removes leading and trailing whitespace. | `TRIM("  x  ")` | `x` |
+| `REPLACE` | `text, start, length, replacement` | Replaces `length` chars from 1-based `start` with `replacement`. | `REPLACE("abcdef", 2, 3, "XY")` | `aXYef` |
+| `SUBSTITUTE` | `text, oldText, newText` | Replaces every occurrence of `oldText` (ordinal, case-sensitive). | `SUBSTITUTE("a-b-c", "-", "+")` | `a+b+c` |
+| `LEFT` | `text, count` | Returns the leftmost `count` characters. | `LEFT("abcdef", 3)` | `abc` |
+| `RIGHT` | `text, count` | Returns the rightmost `count` characters. | `RIGHT("abcdef", 3)` | `def` |
+| `MID` | `text, start, length` | Returns `length` chars from 1-based `start`. | `MID("abcdef", 2, 3)` | `bcd` |
+| `UPPER` | `text` | Converts to upper case. | `UPPER("abc")` | `ABC` |
+| `LOWER` | `text` | Converts to lower case. | `LOWER("ABC")` | `abc` |
+| `PROPER` | `text` | Converts to title case. | `PROPER("hello WORLD")` | `Hello World` |
+
+**Date / time**
+
+| Function | Arguments | Behavior | Example | Result |
+| -------- | --------- | -------- | ------- | ------ |
+| `NOW` | _(none)_ | Returns the current local date and time. | `NOW()` | _current `DateTime`_ |
+| `TODAY` | _(none)_ | Returns the current local date at midnight. | `TODAY()` | _current date_ |
+| `DATEDIFF` | `unit, startDate, endDate` | Whole-unit difference `endDate - startDate`. Units: `year`, `month`, `day`, `hour`, `minute`, `second` (with common aliases). | `DATEDIFF("day", "2024-01-01", "2024-01-31")` | `30` |
+
+> `NOW` and `TODAY` are non-deterministic. For deterministic rule evaluation, prefer injecting the current date/time as a parameter.
+
+Function names are case-insensitive and can be nested, e.g. `MIN(ROUND(10.567, 2), 20)`.
 
 ### Mortgage Processing (Complex-Type Extraction)
 
@@ -402,6 +467,52 @@ Console.WriteLine(library.Version); // 2
 ```
 
 Rule expressions are mutable leaves within a library version. They do not have expression-level version numbers, revision histories, or per-rule rollback semantics.
+
+## Rule Service API
+
+`src/NAIware.RuleService` is an ASP.NET Core Web API that evaluates a serialized model (JSON or XML) against a rules library and returns structured results. It enables out-of-process and automated evaluation — for example, the integration tests in `NAIware.Rules.Tests` post a sample MISMO loan document to the API and assert on the results.
+
+### Pipeline
+
+```
+serialized model (JSON/XML)  ──▶  ModelDeserializationService  ──▶  domain model object
+        +                                  (optional translator)
+rules library (JSON)         ──▶  RulesLibraryLoader           ──▶  RulesLibrary
+                                                                        │
+                                              RuleEvaluationService ────┤  resolves & aligns context
+                                                                        ▼
+                                                   RuleProcessor  ──▶  EvaluateModelResponse
+```
+
+### Endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/rules/evaluate` | Accepts an `EvaluateModelRequest` and returns an `EvaluateModelResponse` (matches, mismatches with optional diagnostics, errors, and warnings). |
+| `POST /api/rules/validate` | Accepts a `ValidateExpressionRequest` (model assembly/type plus a draft expression) and returns a `ValidationResponse`. Lets a formula be drafted and checked before it is saved — no rules library required. |
+| `POST /api/rules/validate-library` | Accepts a `ValidateLibraryRequest` (inline `LibraryJson` or `LibraryPath`) and returns a `ValidationResponse` for every expression in the library. |
+| `GET /api/rules/health` | Liveness probe. |
+
+The evaluate request supplies the model assembly/type, the model payload (inline `Payload` or a `PayloadPath`), the rules library (inline `LibraryJson` or a `LibraryPath`), and an optional custom translator. When a translator is configured (`SerializerAssemblyPath` + `SerializerQualifiedTypeName`), the service invokes its `Deserialize(string filePath)` method via reflection — the same contract the Rule Editor uses — so MISMO-style translators (e.g. `Mortgage.Model.Translators.MISMO`) work unchanged. Otherwise it falls back to `System.Text.Json` / `XmlSerializer`.
+
+### Validation
+
+The validation endpoints run the same compiler-style checks the Rule Editor uses, because both hosts share `NAIware.Rules.Validation.RuleValidationService`. The service resolves the model `Type` through `AssemblyContextMetadataProvider` (an `IContextMetadataProvider` backed by the collectible assembly loader) and reports property-path, parenthesis, and operand-type issues as `ValidationIssue` records. `ValidationResponse.IsValid` is `true` when there are no `Error`-severity issues; warnings (such as a missing result definition) do not block a draft.
+
+Model and translator assemblies are loaded on demand into collectible `AssemblyLoadContext` instances that preserve a single `Type` identity across related DLLs, mirroring the editor's `AssemblyTypeDiscoveryService`.
+
+### Security considerations
+
+> **The API is a developer/test harness, not a production-hardened service.** It loads arbitrary assemblies and reads arbitrary file paths supplied by the caller. Before any real-world exposure it requires, at minimum:
+> - Authentication and authorization on the endpoints.
+> - Allow-listing (or outright removal) of caller-supplied `*AssemblyPath`, `PayloadPath`, and `LibraryPath` values to prevent path traversal and arbitrary assembly loading.
+> - Sandboxing/isolation for untrusted model and translator assemblies, since loaded code executes in-process.
+> - Request size limits and timeouts to bound resource usage.
+
+### Known issues / concerns
+
+- **`tests/resources/LoanEligibilityRules.json` is broken.** Its expression uses the root-context prefix `Loan.PrimaryBorrower.FirstName`, but `ParameterFactory` extracts parameters **without** a root prefix (e.g. `PrimaryBorrower.FirstName`). Under `Strict` execution mode this raises a parse error. The API integration tests use a corrected library, `tests/resources/MortgageEligibilityRules.json`, authored against the verified parameter paths. The original resource should be fixed or removed separately.
+- **`NAIware.RuleEditor` does not build as part of the solution.** It references `NAIware.RuleIntelligence`, which `NAIware-Rules.slnx` excludes from the build (`Project="false"`). A full-solution build therefore fails on the editor. This is pre-existing and unrelated to the Rule Service; the service and test projects build and run independently.
 
 ## Coding Standards
 

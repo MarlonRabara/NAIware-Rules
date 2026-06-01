@@ -120,7 +120,27 @@ public class Engine : EngineBase
         return Parse(Helper.GetTokens(expression));
     }
 
-    /// <summary>Parses tokens into a formula tree.</summary>
+    /// <summary>
+    /// Parses a token list into an arithmetic <see cref="FormulaTree"/> using a shift-reduce strategy.
+    /// </summary>
+    /// <param name="tokens">The tokenized expression. This list is consumed (mutated) during parsing.</param>
+    /// <returns>The parsed formula tree, or <see langword="null"/> if the expression is empty.</returns>
+    /// <remarks>
+    /// <para>
+    /// Like the rule parser this uses an operand stack and an operator stack, but it adds explicit
+    /// parenthesis-nesting bookkeeping (<c>currentParenNestingLevel</c> and <c>parenthesisOpNesting</c>) so
+    /// that an operator is only reduced when its operands belong to the same parenthetical level. This
+    /// preserves correct precedence/grouping for nested expressions such as <c>a * (b + c)</c>.
+    /// </para>
+    /// <para>
+    /// Special handling includes: a lone parameter token is promoted to <c>param * 1</c> so it becomes a
+    /// well-formed expression node; a leading unary minus is treated as <c>0 - rhs</c>; and <c>null</c>
+    /// operands are propagated through a nullable-decimal expression. The parser also performs lightweight
+    /// validation — suggesting a similar parameter name when an unknown identifier is encountered and
+    /// rejecting expressions that lack the operators needed to combine their operands. Errors are surfaced
+    /// as a <see cref="FormatException"/>.
+    /// </para>
+    /// </remarks>
     public FormulaTree? Parse(List<string> tokens)
     {
         System.Collections.Stack expstack = new();

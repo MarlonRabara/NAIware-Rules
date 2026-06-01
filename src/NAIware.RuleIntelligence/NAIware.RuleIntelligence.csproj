@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <AssemblyName>NAIware.RuleIntelligence</AssemblyName>
+    <RootNamespace>NAIware.RuleIntelligence</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Intended when this project is dropped into the NAIware-Rules /src folder. -->
+    <ProjectReference Include="..\NAIware.Core\NAIware.Core.csproj" />
+    <ProjectReference Include="..\NAIware.Rules\NAIware.Rules.csproj" />
+  </ItemGroup>
+</Project>

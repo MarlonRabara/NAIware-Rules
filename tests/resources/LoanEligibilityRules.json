@@ -1,0 +1,63 @@
+{
+  "Identity": "640846f3-9b18-4c9d-86a3-5e9fd11348e8",
+  "Name": "LoanEligibilityRules",
+  "Description": "Sample loan eligibility rule library.",
+  "Version": 1,
+  "SnapshotIdentity": "e02c6ccc-d87b-4471-9b3e-5e73e80f752e",
+  "IsPublished": false,
+  "State": "Draft",
+  "CreatedUtc": "2026-05-27T16:54:40.5303392+00:00",
+  "SavedUtc": "2026-05-27T16:57:08.3192643+00:00",
+  "Contexts": [
+    {
+      "Identity": "32a8d79d-bbe9-4a15-be01-69d1076c4b30",
+      "Name": "Loan",
+      "Description": "",
+      "QualifiedTypeName": "Mortgage.Model.Loans.LoanApplication, Mortgage.Model, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+      "SourceAssemblyPath": "F:\\SE\\git\\NAIware-Rules\\tests\\resources\\Mortgage.Model.dll",
+      "AssemblyPath": "F:\\SE\\git\\NAIware-Rules\\tests\\resources\\Mortgage.Model.dll",
+      "SerializerAssemblyPath": "F:\\SE\\git\\NAIware-Rules\\tests\\resources\\Mortgage.Model.Translators.MISMO.dll",
+      "SerializerQualifiedTypeName": "Mortgage.Model.Translators.MISMO.MortgageFileMismoTranslator, Mortgage.Model.Translators.MISMO, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+      "Categories": [
+        {
+          "Identity": "6fa28591-3ef7-4b8d-b283-b418c5984024",
+          "Name": "01 - Borrower",
+          "Description": "",
+          "Categories": [],
+          "ExpressionIds": [
+            "af20bccf-2ef2-4bdc-b8f4-92929ffcb560"
+          ]
+        }
+      ],
+      "Expressions": [
+        {
+          "Identity": "af20bccf-2ef2-4bdc-b8f4-92929ffcb560",
+          "Id": "af20bccf-2ef2-4bdc-b8f4-92929ffcb560",
+          "Name": "01 - Age Rule",
+          "Description": "",
+          "Expression": "Loan.PrimaryBorrower.FirstName = \u0022Marlon\u0022",
+          "IsActive": true,
+          "Priority": 10,
+          "Tags": [
+            "age",
+            "loan",
+            "eligibility"
+          ],
+          "ResultDefinition": {
+            "Code": "AGE-001",
+            "Message": "Applicant\u0027s youngest non-borrower spouse is under 18 and loan amount exceeds $50,000.",
+            "Severity": "Info",
+            "Value": "5"
+          },
+          "ExpressionParameters": [],
+          "ResultCode": "AGE-001",
+          "ResultMessage": "Applicant\u0027s youngest non-borrower spouse is under 18 and loan amount exceeds $50,000.",
+          "Severity": "Info",
+          "OptionalValue": "5"
+        }
+      ],
+      "ParameterDefinitions": []
+    }
+  ],
+  "Versions": []
+}

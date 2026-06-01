@@ -14,6 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\NAIware.RuleIntelligence\NAIware.RuleIntelligence.csproj" />
     <ProjectReference Include="..\NAIware.Rules\NAIware.Rules.csproj" />
   </ItemGroup>
 

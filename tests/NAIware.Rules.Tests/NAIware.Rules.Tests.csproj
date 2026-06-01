@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.8" />
     <PackageReference Include="Reqnroll" Version="3.0.0" />
     <PackageReference Include="Reqnroll.xUnit" Version="3.0.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -21,7 +22,13 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\NAIware.Core\NAIware.Core.csproj" />
     <ProjectReference Include="..\..\src\NAIware.Rules\NAIware.Rules.csproj" />
+    <ProjectReference Include="..\..\src\NAIware.RuleIntelligence\NAIware.RuleIntelligence.csproj" />
+    <ProjectReference Include="..\..\src\NAIware.RuleService\NAIware.RuleService.csproj" />
     <ProjectReference Include="..\DocAnalysis.Models\DocumentAnalysis.Models.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Repro\" />
   </ItemGroup>
 
 </Project>

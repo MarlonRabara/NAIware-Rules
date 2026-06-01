@@ -1,12 +1,19 @@
 using System.Text.RegularExpressions;
+using NAIware.Rules.Models;
 
-namespace NAIware.RuleEditor;
+namespace NAIware.Rules.Validation;
 
 /// <summary>
-/// Validates an entire rule library the way a compiler validates a project build.
+/// Validates rule libraries and individual draft expressions the way a compiler validates a build.
 /// Reports missing context types, invalid property paths, mismatched parentheses,
 /// type-incompatibility between operands, and incomplete result definitions.
 /// </summary>
+/// <remarks>
+/// The service is host-neutral: it depends only on <see cref="IContextMetadataProvider"/> to resolve
+/// a context's reflected <see cref="ContextMetadata"/>. The Rule Editor and the Rule Service each
+/// supply their own provider, so the same validation logic runs design-time in the editor and over
+/// HTTP in the service.
+/// </remarks>
 public sealed class RuleValidationService
 {
     private static readonly Regex PropertyLikeToken = new(
@@ -20,13 +27,14 @@ public sealed class RuleValidationService
     private static readonly HashSet<string> ValidLogicalKeywords =
         new(StringComparer.OrdinalIgnoreCase) { "and", "or", "not" };
 
-    private readonly IntelliSenseService _intellisense;
+    private readonly IContextMetadataProvider _metadataProvider;
 
     /// <summary>Initializes a new validation service.</summary>
-    public RuleValidationService(IntelliSenseService intellisense)
+    /// <param name="metadataProvider">The host-supplied provider that resolves context metadata.</param>
+    public RuleValidationService(IContextMetadataProvider metadataProvider)
     {
-        ArgumentNullException.ThrowIfNull(intellisense);
-        _intellisense = intellisense;
+        ArgumentNullException.ThrowIfNull(metadataProvider);
+        _metadataProvider = metadataProvider;
     }
 
     /// <summary>
@@ -42,14 +50,14 @@ public sealed class RuleValidationService
 
         foreach (RuleContext context in library.Contexts)
         {
-            ContextMetadata? metadata = _intellisense.GetMetadata(context);
+            ContextMetadata? metadata = _metadataProvider.GetMetadata(context);
             if (metadata is null)
             {
                 issues.Add(new ValidationIssue
                 {
                     Severity = "Error",
                     Context = context.Name,
-                    Message = $"Context type '{context.QualifiedTypeName}' could not be resolved. Re-load the source DLL."
+                    Message = DescribeUnresolvedContext(context)
                 });
                 continue;
             }
@@ -62,6 +70,83 @@ public sealed class RuleValidationService
         }
 
         return issues;
+    }
+
+    /// <summary>
+    /// Validates a single draft expression against the supplied context without requiring it to be
+    /// attached to a library. This is the entry point for authoring scenarios where a formula is
+    /// drafted and checked before it is saved — for example, the Rule Service's validation endpoint.
+    /// </summary>
+    /// <param name="context">The context the expression is authored against.</param>
+    /// <param name="expression">The draft expression text.</param>
+    /// <param name="resultCode">Optional result code; when supplied with a message, suppresses the incomplete-result warning.</param>
+    /// <param name="resultMessage">Optional result message; when supplied with a code, suppresses the incomplete-result warning.</param>
+    /// <param name="ruleName">Optional display name used to label issues.</param>
+    /// <returns>A list of <see cref="ValidationIssue"/> records, empty when the draft is clean.</returns>
+    public List<ValidationIssue> ValidateExpression(
+        RuleContext context,
+        string expression,
+        string? resultCode = null,
+        string? resultMessage = null,
+        string? ruleName = null)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var issues = new List<ValidationIssue>();
+
+        ContextMetadata? metadata = _metadataProvider.GetMetadata(context);
+        if (metadata is null)
+        {
+            issues.Add(new ValidationIssue
+            {
+                Severity = "Error",
+                Context = context.Name,
+                Message = DescribeUnresolvedContext(context)
+            });
+            return issues;
+        }
+
+        var rule = new RuleExpression
+        {
+            Name = string.IsNullOrWhiteSpace(ruleName) ? "(draft)" : ruleName,
+            Expression = expression ?? string.Empty,
+            ResultCode = resultCode,
+            ResultMessage = resultMessage
+        };
+
+        ValidateRule(context, category: string.Empty, rule, metadata, issues);
+        return issues;
+    }
+
+    /// <summary>
+    /// Produces a precise diagnostic explaining why a context type could not be resolved,
+    /// distinguishing missing configuration, a missing DLL on disk, and a type that is
+    /// absent from an otherwise-loadable assembly. This is far more actionable than a
+    /// generic "could not be resolved" message.
+    /// </summary>
+    private static string DescribeUnresolvedContext(RuleContext context)
+    {
+        string typeName = string.IsNullOrWhiteSpace(context.QualifiedTypeName)
+            ? "(unspecified)"
+            : context.QualifiedTypeName;
+
+        string? assemblyPath = context.SourceAssemblyPath;
+
+        if (string.IsNullOrWhiteSpace(assemblyPath))
+        {
+            return $"Context type '{typeName}' could not be resolved because no source assembly is " +
+                   "configured for this context. Open the context and re-select the model DLL.";
+        }
+
+        if (!File.Exists(assemblyPath))
+        {
+            return $"Context type '{typeName}' could not be resolved because the source assembly was " +
+                   $"not found at '{assemblyPath}'. The DLL may have moved; re-select the model DLL " +
+                   "or restore it to that path.";
+        }
+
+        return $"Context type '{typeName}' was not found in assembly '{assemblyPath}'. The type may have " +
+               "been renamed, removed, or the qualified type name is incorrect. Re-select the model type.";
     }
 
     private static string FindCategoryFor(RuleContext context, Guid expressionId)
@@ -192,7 +277,13 @@ public sealed class RuleValidationService
                 ? token[(metadata.Type.Name.Length + 1)..]
                 : token;
 
-            if (ResolvePropertyType(metadata.Type, path) is null)
+            // Enum literals (e.g. "LoanPurposeType.Refinance") appear as comparison operands, not
+            // property paths. The runtime engine resolves these via GenericEnumeration, so the
+            // validator must recognize them too rather than treating them as unresolved properties.
+            if (IsEnumLiteral(metadata.Type, token))
+                continue;
+
+            if (ResolvePropertyType(metadata.Type, path, context.Name) is null)
             {
                 issues.Add(Error(context, category, rule,
                     $"Property path '{token}' could not be resolved on '{metadata.Type.FullName}'. " +
@@ -218,8 +309,19 @@ public sealed class RuleValidationService
                 ? left[(metadata.Type.Name.Length + 1)..]
                 : left;
 
-            Type? leftType = ResolvePropertyType(metadata.Type, path);
+            Type? leftType = ResolvePropertyType(metadata.Type, path, context.Name);
             if (leftType is null) continue; // Already reported by ValidatePropertyPaths.
+
+            // An enum literal right operand (e.g. "LoanPurposeType.Refinance") is type-compatible when
+            // the left operand is the matching enum. The ComparisonPattern does not capture dotted
+            // right operands, so this is handled here against the qualified-enum form.
+            Type? leftEnum = Nullable.GetUnderlyingType(leftType) ?? leftType;
+            if (leftEnum.IsEnum
+                && right.StartsWith(leftEnum.Name + ".", StringComparison.Ordinal)
+                && op is "=" or "!=" or "<>")
+            {
+                continue;
+            }
 
             Type rightType = InferLiteralType(right);
             if (!AreCompatible(leftType, rightType, op))
@@ -231,17 +333,108 @@ public sealed class RuleValidationService
         }
     }
 
-    private static Type? ResolvePropertyType(Type rootType, string path)
+    /// <summary>
+    /// Determines whether a dotted token is a qualified enum literal (e.g. <c>LoanPurposeType.Refinance</c>)
+    /// reachable from the model's property graph. This mirrors how the runtime engine resolves enum
+    /// operands via <c>GenericEnumeration</c>, so the validator does not misreport them as property paths.
+    /// </summary>
+    private static bool IsEnumLiteral(Type rootType, string token)
+    {
+        int lastDot = token.LastIndexOf('.');
+        if (lastDot <= 0) return false;
+
+        string typeName = token[..lastDot];
+        string memberName = token[(lastDot + 1)..];
+
+        // The qualifier must be a single, simple type name (no further dots) and the member must be a
+        // defined value of an enum type used somewhere in the model graph.
+        if (typeName.Contains('.')) return false;
+
+        foreach (Type enumType in EnumerateModelEnumTypes(rootType, new HashSet<Type>()))
+        {
+            if (string.Equals(enumType.Name, typeName, StringComparison.Ordinal)
+                && Enum.IsDefined(enumType, memberName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Walks the model's property graph (to a bounded depth) and yields every distinct enum type it
+    /// references, including enum element types of generic collections.
+    /// </summary>
+    private static IEnumerable<Type> EnumerateModelEnumTypes(Type rootType, HashSet<Type> visited, int depth = 0)
+    {
+        if (depth > 8 || !visited.Add(rootType)) yield break;
+
+        foreach (System.Reflection.PropertyInfo property in rootType.GetProperties())
+        {
+            Type propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+
+            // Unwrap generic collection element types so enums inside lists are discovered.
+            if (propertyType != typeof(string)
+                && typeof(System.Collections.IEnumerable).IsAssignableFrom(propertyType)
+                && propertyType.IsGenericType)
+            {
+                propertyType = propertyType.GetGenericArguments()[0];
+            }
+
+            if (propertyType.IsEnum)
+            {
+                yield return propertyType;
+            }
+            else if (!propertyType.IsPrimitive
+                     && propertyType != typeof(string)
+                     && propertyType != typeof(decimal)
+                     && propertyType != typeof(DateTime)
+                     && propertyType != typeof(Guid)
+                     && !propertyType.IsValueType)
+            {
+                foreach (Type nested in EnumerateModelEnumTypes(propertyType, visited, depth + 1))
+                    yield return nested;
+            }
+        }
+    }
+
+    private static Type? ResolvePropertyType(Type rootType, string path, string instanceName = "")
     {
         Type current = rootType;
         foreach (string part in path.Split('.', StringSplitOptions.RemoveEmptyEntries))
         {
-            string clean = Regex.Replace(part, @"\[[0-9]+\]", string.Empty);
+            string cleanPropertyPath = Regex.Replace(part, @"\[[0-9]+\]", string.Empty);
 
-            // Indexed collection element access via dot-notation integer: "Borrowers.0" or "Count".
-            if (int.TryParse(clean, out _))
+            if (cleanPropertyPath == instanceName)
             {
-                if (current != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(current) && current.IsGenericType)
+                // this is the root type instance name.
+                continue;
+            }
+
+            // Determine whether the current type is a generic collection. Unwrapping is deferred to
+            // here (rather than eagerly at the end of the previous iteration) so collection-level
+            // members such as ".Count" remain resolvable against the collection itself. This mirrors
+            // ParameterFactory, which emits a "{collection}.Count" parameter and "{collection}.{i}.{member}"
+            // element parameters.
+            bool currentIsCollection = current != typeof(string)
+                && typeof(System.Collections.IEnumerable).IsAssignableFrom(current)
+                && current.IsGenericType;
+
+            // Collection-level "Count" maps to the synthetic int parameter created by ParameterFactory.
+            // Resolve it directly to avoid interface-inheritance reflection quirks (Count is declared on
+            // IReadOnlyCollection<T>/ICollection<T>, not always discoverable via GetProperty on the
+            // declared interface type).
+            if (currentIsCollection && string.Equals(cleanPropertyPath, "Count", StringComparison.Ordinal))
+            {
+                current = typeof(int);
+                continue;
+            }
+
+            // Indexed collection element access via dot-notation integer: "Borrowers.0".
+            if (int.TryParse(cleanPropertyPath, out _))
+            {
+                if (currentIsCollection)
                 {
                     current = current.GetGenericArguments()[0];
                     continue;
@@ -249,17 +442,17 @@ public sealed class RuleValidationService
                 return null;
             }
 
-            System.Reflection.PropertyInfo? property = current.GetProperty(clean);
-            if (property is null) return null;
-
-            current = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-
-            if (current != typeof(string)
-                && typeof(System.Collections.IEnumerable).IsAssignableFrom(current)
-                && current.IsGenericType)
+            // A member name following a collection (without an index) resolves against the element type,
+            // e.g. "Borrowers.FirstName".
+            if (currentIsCollection)
             {
                 current = current.GetGenericArguments()[0];
             }
+
+            System.Reflection.PropertyInfo? property = current.GetProperty(cleanPropertyPath);
+            if (property is null) return null;
+
+            current = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
         }
 
         return current;

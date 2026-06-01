@@ -137,18 +137,29 @@ NAIware.Rules.Processing/      — High-level processor
     IRuleContextResolver.cs
     ReflectionRuleContextResolver.cs
 
-NAIware.Rules.Validation/      — Library and expression validation
-    IRuleLibraryValidator.cs
-    RuleLibraryValidator.cs
-    RuleValidationResult.cs
-    RuleValidationFinding.cs
+NAIware.Rules.Serialization/   — Shared model hydration for input objects (host-neutral)
+    IModelAssemblyResolver.cs   — Abstraction for loading model/serializer assemblies and types
+    ModelFormat.cs              — Json / Xml / custom translator format hint
+    ModelSource.cs              — File-backed or in-memory payload descriptor
+    ModelHydrator.cs            — Deserializes input objects via built-in JSON/XML or a custom translator
 
-NAIware.Rules.Persistence/     — Storage abstraction and serialization
-    IRuleLibraryRepository.cs
-    JsonRuleLibrarySerializer.cs
-    FileRuleLibraryRepository.cs
+NAIware.Rules.Validation/      — Shared compiler-style validation (host-neutral)
+    IContextMetadataProvider.cs — Abstraction that resolves a context's reflected model Type
+    ContextMetadata.cs          — Resolved Type plus optional reachable property paths
+    ValidationIssue.cs          — A single finding (severity, message, context/category/rule)
+    RuleValidationService.cs    — Validates a whole library or a single draft expression
+
+NAIware.RuleEditor/            — Windows tooling that owns JSON persistence and supplies validation metadata
+    RuleLibrarySerializer.cs    — JSON load/save with portable relative-path resolution
+    IntelliSenseService.cs      — Implements IContextMetadataProvider over the editor's schema services
+
+NAIware.RuleService/           — HTTP API that evaluates and validates rules
+    AssemblyContextMetadataProvider.cs — Implements IContextMetadataProvider over the service's assembly loader
+    RuleValidationApiService.cs        — Projects validation findings onto HTTP responses
 
 ```
+
+> **Implementation note:** Validation now lives in the host-neutral `NAIware.Rules.Validation` namespace (`RuleValidationService`, `ValidationIssue`, `ContextMetadata`, `IContextMetadataProvider`), so the same logic runs in the Rule Editor and the Rule Service. Each host supplies an `IContextMetadataProvider` to resolve a context's model `Type`: the editor via `IntelliSenseService`, the service via `AssemblyContextMetadataProvider`. This mirrors how `NAIware.Rules.Serialization` shares deserialization. Persistence remains in `NAIware.RuleEditor` (`RuleLibrarySerializer`) — the model stays persistence-agnostic and a host may substitute its own repository.
 
 ### Library Entities — Attribute Derivation
 
@@ -167,6 +178,8 @@ All identity patterns follow the existing `Identification` class (`Guid` + `stri
 | `ChangeNote` | `string?` | New — optional description of what changed in this version |
 | `IsPublished` | `bool` | Derived convenience flag — true when `State` is not `Draft`; `State` remains canonical |
 | `State` | `RulesLibraryState` | New — Draft, Published, Deprecated, Archived |
+| `CreatedUtc` | `DateTimeOffset` | New — when the library was first created |
+| `SavedUtc` | `DateTimeOffset` | New — when the library was last saved (draft persistence timestamp) |
 | `Contexts` | `List<RuleContext>` | New |
 | `Versions` | `List<LibraryVersion>` | New — in-memory history of prior snapshots (optional; consumer may persist separately) |
 
@@ -187,9 +200,14 @@ All identity patterns follow the existing `Identification` class (`Guid` + `stri
 | `Description` | `string` | From `IParameter.Description` |
 | `QualifiedTypeName` | `string` | New — canonical persisted .NET type binding; prefer `Type.AssemblyQualifiedName` when available, with `Type.FullName` comparison fallback for runtime resolution |
 | `SourceAssemblyPath` | `string?` | New — design-time source DLL path used by tooling for reflection, IntelliSense, and validation; not required for runtime object matching when the type is already loaded |
+| `SerializedDataPath` | `string?` | New — optional sample-data file path used by tooling to hydrate and preview context data |
+| `SerializerAssemblyPath` | `string?` | New — optional source DLL path used by tooling to resolve a custom serializer type |
+| `SerializerQualifiedTypeName` | `string?` | New — optional custom serializer type exposing `Deserialize(string filePath)` |
 | `Categories` | `List<RuleCategory>` | New |
 | `Expressions` | `List<RuleExpression>` | New |
 | `ParameterDefinitions` | `List<RuleParameterDefinition>` | New |
+
+> **Implementation note:** `RuleContext` also exposes an `AssemblyPath` compatibility alias that forwards to `SourceAssemblyPath` for older editor code. Tooling-only path fields (`SourceAssemblyPath`, `SerializedDataPath`, `SerializerAssemblyPath`) are stored relative to the library file and resolved to absolute paths on load to keep saved libraries portable.
 
 #### RuleCategory
 | Property | Type | Source |
@@ -211,10 +229,14 @@ All identity patterns follow the existing `Identification` class (`Guid` + `stri
 | `Description` | `string` | From `IParameter.Description` |
 | `Expression` | `string` | The raw expression string (analogous to what `engine.AddRule(expression)` takes) |
 | `IsActive` | `bool` | New — soft-disable without removal |
+| `Priority` | `int` | New — ordering hint used by editors or future ordered execution |
+| `Tags` | `List<string>` | New — free-form tags for organization and filtering |
 | `ResultDefinition` | `RuleResultDefinition?` | New — 1:1 embedded |
 | `ExpressionParameters` | `List<RuleExpressionParameter>` | New — M:N join to parameters |
 
 > **Note**: `RuleExpression` no longer carries its own version number or version history. The containing `RulesLibrary.Version` is the effective version of every expression it contains.
+
+> **Implementation note:** `RuleExpression` exposes editor-friendly proxy members — `Id` (alias of `Identity`), and `ResultCode`/`ResultMessage`/`Severity`/`OptionalValue` which read and write through `ResultDefinition`. A `Revise(newExpression, changeNote?)` compatibility method updates the expression text without creating expression-level history, consistent with library-level versioning.
 
 #### RuleResultDefinition
 | Property | Type | Source |
@@ -222,6 +244,7 @@ All identity patterns follow the existing `Identification` class (`Guid` + `stri
 | `Code` | `string` | New — application-defined code (e.g., "ELIG-001") |
 | `Message` | `string` | New — human-readable description |
 | `Severity` | `string?` | New — optional application-defined result hint; the engine is agnostic about interpretation |
+| `Value` | `string?` | New — optional application-defined result value payload carried with the match |
 
 `RuleResultDefinition.Severity` is part of the match payload. It is separate from validation severity, which belongs to validation findings.
 
@@ -370,9 +393,16 @@ Recommended validation entities:
 
 | Entity | Purpose |
 |---|---|
-| `RuleValidationResult` | Aggregate result of validating a library, context, category, or expression. |
-| `RuleValidationFinding` | Individual validation message with severity, code, message, and target metadata. |
-| `IRuleLibraryValidator` | Service contract for validating library structure and expressions. |
+| `RuleValidationService` | Host-neutral service that validates a whole library or a single draft expression. |
+| `ValidationIssue` | Individual validation finding with severity, message, and context/category/rule metadata. |
+| `IContextMetadataProvider` | Abstraction that resolves a context's reflected model `Type` (and optional property paths). |
+
+> **Implementation note:** Validation is implemented in the host-neutral `NAIware.Rules.Validation` namespace by `RuleValidationService`. It validates contexts, property paths, parenthesis balancing, operand type compatibility, and result-definition completeness, returning a list of `ValidationIssue` records with `Error`/`Warning`/`Information` severities. Two entry points are provided:
+>
+> - `Validate(RulesLibrary)` — validates every expression in a library (used by the editor's error list and the service's `validate-library` endpoint).
+> - `ValidateExpression(context, expression, resultCode?, resultMessage?, ruleName?)` — validates a single draft formula without requiring a library, supporting authoring scenarios (used by the service's `validate` endpoint).
+>
+> The service depends only on `IContextMetadataProvider` to resolve a context's model `Type`. The Rule Editor supplies `IntelliSenseService` (rich schema-derived property paths); the Rule Service supplies `AssemblyContextMetadataProvider` (reflection over the model type loaded by its collectible assembly loader).
 
 ### Runtime Error Model
 
@@ -398,6 +428,8 @@ Recommended stable error codes:
 ### Library Repository Contract
 
 The model should remain persistence-agnostic. The framework may provide JSON and file-based repository helpers, but the POCO model should not require Entity Framework, a relational database, or a specific storage provider.
+
+> **Implementation note:** The concrete persistence helper shipping today is `RuleLibrarySerializer` in the `NAIware.RuleEditor` project. It performs JSON `Load(path)`/`Save(library, path)`, resolves context-relative assembly and sample-data paths against the library file location for portability, and rebuilds category-expression links after deserialization. The recommended repository operations below describe the intended contract surface; a host application may implement them over this serializer or another store.
 
 Recommended repository operations:
 

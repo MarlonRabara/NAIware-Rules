@@ -49,7 +49,7 @@ namespace NAIware.Rules.Tests.StepDefinitions
         public void ThenTheHydratedObjectTypeShouldBe(string expectedTypeName)
         {
             _hydratedObject.Should().NotBeNull("the hydrated object should not be null");
-            _hydratedObject!.Root.Value.Type.Name.Should().Be(expectedTypeName, $"the hydrated object type should be {expectedTypeName}");
+            _hydratedObject!.Root.Value.Type.FullName.Should().Be(expectedTypeName, $"the hydrated object type should be {expectedTypeName}");
         }
 
     }

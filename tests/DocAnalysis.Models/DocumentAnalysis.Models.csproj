@@ -10,6 +10,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="Mortgage.Model">
+      <HintPath>..\resources\Mortgage.Model.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="doc-analysis-package-sample.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using NAIware.RuleIntelligence;
 using NAIware.Rules.Runtime;
+using NAIware.Rules.Serialization;
 
 namespace NAIware.RuleEditor;
 
@@ -18,7 +20,6 @@ public sealed partial class MainForm : Form
     private readonly IntelliSenseService _intelliSense;
     private readonly RuleValidationService _validator;
     private readonly RuleTestService _testService = new();
-    private SplitContainer? _editorAndPropsSplit;
     private Panel? _propertiesViewHost;
 
     private RulesLibrary _library = new();
@@ -65,14 +66,8 @@ public sealed partial class MainForm : Form
         BorderStyle = BorderStyle.None
     };
 
-    private readonly ListBox _intelliSenseListBox = new()
-    {
-        Visible = false,
-        Width = 320,
-        Height = 180,
-        Font = new Font("Cascadia Mono, Consolas", 9.25f),
-        IntegralHeight = false
-    };
+    private readonly IntelliSensePopup _intelliSensePopup = new();
+    private ListBox _intelliSenseListBox => _intelliSensePopup.ListBox;
 
     private readonly TextBox _resultCodeTextBox = new() { Dock = DockStyle.Fill };
     private readonly TextBox _resultMessageTextBox = new() { Dock = DockStyle.Fill };
@@ -159,7 +154,6 @@ public sealed partial class MainForm : Form
     };
 
     private readonly Label _libraryCountLabel = new() { Dock = DockStyle.Bottom, Height = 26, Padding = new Padding(12, 6, 0, 0), Text = "1 context(s)      11 rule(s)" };
-    private readonly StatusStrip _statusStrip = new();
     private readonly ToolStripStatusLabel _readyStatusLabel = new() { Text = "Ready", Spring = true, TextAlign = ContentAlignment.MiddleLeft };
     private readonly ToolStripStatusLabel _libraryStatusLabel = new() { Text = "Library: LoanEligibilityRules" };
     private readonly ToolStripStatusLabel _validationStatusLabel = new() { Text = "Validation not run" };
@@ -206,21 +200,70 @@ public sealed partial class MainForm : Form
         _severityComboBox.Items.AddRange(["Info", "Warning", "Error"]);
         _severityComboBox.SelectedItem = "Error";
 
-        Controls.Add(BuildShell());
-        Controls.Add(BuildCommandStrip());
-        Controls.Add(BuildMenu());
-        Controls.Add(BuildStatusBar());
+        // The form shell (menu strip, command toolstrip, status strip, and the three
+        // nested split containers with named host panels) is created by the designer
+        // in InitializeComponent. The Build* methods below populate those hosts with
+        // runtime-generated content (menu items, ribbon buttons, tree, editor, etc.).
+        PopulateMenu(_menuStrip);
+        PopulateCommandStrip(_commandStrip);
+        PopulateStatusBar(_statusStrip);
+        PopulateLibraryPanel(_libraryHost);
+        PopulateEditorPanel(_editorHost);
+        PopulatePropertiesPanel(_propertiesHost);
+        PopulateErrorPanel(_errorHost);
+
+        WireSplitLayout();
     }
 
-    private MenuStrip BuildMenu()
+    private void WireSplitLayout()
     {
-        var menu = new MenuStrip
-        {
-            Dock = DockStyle.Top,
-            RenderMode = ToolStripRenderMode.System,
-            BackColor = Color.White
-        };
+        void OnLayoutChanged(object? _, EventArgs __) => ApplySplitLayout();
+        _shellSplit.HandleCreated += OnLayoutChanged;
+        _shellSplit.SizeChanged += OnLayoutChanged;
+        _topSplit.SizeChanged += OnLayoutChanged;
+        _editorAndPropsSplit.SizeChanged += OnLayoutChanged;
+        ApplySplitLayout();
+    }
 
+    private void ApplySplitLayout()
+    {
+        ConfigureSplit(_shellSplit, panel1MinSize: 0, panel2MinSize: 165, preferredDistance: _shellSplit.Height - 360);
+        ConfigureSplit(_topSplit, panel1MinSize: 260, panel2MinSize: 500, preferredDistance: 410);
+        ConfigureSplit(_editorAndPropsSplit, panel1MinSize: 420, panel2MinSize: 250, preferredDistance: _editorAndPropsSplit.Width - 360);
+    }
+
+    private static void ConfigureSplit(SplitContainer split, int panel1MinSize, int panel2MinSize, int preferredDistance)
+    {
+        int length = split.Orientation == Orientation.Vertical ? split.Width : split.Height;
+        if (length <= 0) return;
+
+        int maxPanelSpace = Math.Max(0, length - split.SplitterWidth);
+
+        int p1 = Math.Max(0, panel1MinSize);
+        int p2 = Math.Max(0, panel2MinSize);
+        if (p1 + p2 > maxPanelSpace)
+        {
+            if (p2 >= maxPanelSpace)
+            {
+                p2 = maxPanelSpace;
+                p1 = 0;
+            }
+            else
+            {
+                p1 = maxPanelSpace - p2;
+            }
+        }
+
+        split.Panel1MinSize = p1;
+        split.Panel2MinSize = p2;
+
+        int minDistance = split.Panel1MinSize;
+        int maxDistance = Math.Max(minDistance, length - split.Panel2MinSize);
+        split.SplitterDistance = Math.Clamp(preferredDistance, minDistance, maxDistance);
+    }
+
+    private void PopulateMenu(MenuStrip menu)
+    {
         ToolStripMenuItem file = new("&File");
         file.DropDownItems.Add(MenuItem("&New Library", Keys.Control | Keys.N, (_, _) => NewLibrary()));
         file.DropDownItems.Add(MenuItem("&Open Library...", Keys.Control | Keys.O, (_, _) => OpenLibrary()));
@@ -271,23 +314,10 @@ public sealed partial class MainForm : Form
         help.DropDownItems.Add(MenuItem("About NAIware Rule Editor", Keys.None, (_, _) => ShowAbout()));
 
         menu.Items.AddRange([file, library, context, category, rule, test, view, tools, help]);
-        return menu;
     }
 
-    private ToolStrip BuildCommandStrip()
+    private void PopulateCommandStrip(ToolStrip strip)
     {
-        var strip = new ToolStrip
-        {
-            Dock = DockStyle.Top,
-            GripStyle = ToolStripGripStyle.Hidden,
-            RenderMode = ToolStripRenderMode.System,
-            ImageScalingSize = new Size(28, 28),
-            AutoSize = false,
-            Height = 128,
-            Padding = new Padding(8, 6, 8, 0),
-            BackColor = Color.White
-        };
-
         strip.Items.Add(ToolButton("New\nLibrary", "File", MakeIcon(IconKind.Document, Color.SeaGreen), (_, _) => NewLibrary()));
         strip.Items.Add(ToolButton("Open\nLibrary", "File", MakeIcon(IconKind.Folder, Color.Goldenrod), (_, _) => OpenLibrary()));
         strip.Items.Add(ToolButton("Save", "File", MakeIcon(IconKind.Disk, Color.RoyalBlue), (_, _) => SaveLibrary()));
@@ -316,93 +346,10 @@ public sealed partial class MainForm : Form
         strip.Items.Add(new ToolStripSeparator());
 
         strip.Items.Add(ToolButton("Validate\nLibrary", "Validation", MakeIcon(IconKind.ClipboardCheck, Color.SeaGreen), (_, _) => ValidateLibrary()));
-        return strip;
-    }
-
-    private Control BuildShell()
-    {
-        var root = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Horizontal,
-            SplitterWidth = 5
-        };
-
-        var top = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Vertical,
-            SplitterWidth = 4
-        };
-
-        var editorAndProps = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Vertical,
-            SplitterWidth = 4
-        };
-
-        _editorAndPropsSplit = editorAndProps;
-
-        top.Panel1.Controls.Add(BuildLibraryPanel());
-        editorAndProps.Panel1.Controls.Add(BuildEditorPanel());
-        editorAndProps.Panel2.Controls.Add(BuildPropertiesPanel());
-        top.Panel2.Controls.Add(editorAndProps);
-
-        root.Panel1.Controls.Add(top);
-        root.Panel2.Controls.Add(BuildErrorPanel());
-
-        ApplySplitLayout();
-
-        void OnLayoutChanged(object? _, EventArgs __) => ApplySplitLayout();
-        root.HandleCreated += OnLayoutChanged;
-        root.SizeChanged += OnLayoutChanged;
-        top.SizeChanged += OnLayoutChanged;
-        editorAndProps.SizeChanged += OnLayoutChanged;
-
-        void ApplySplitLayout()
-        {
-            ConfigureSplit(root, panel1MinSize: 0, panel2MinSize: 165, preferredDistance: root.Height - 360);
-            ConfigureSplit(top, panel1MinSize: 260, panel2MinSize: 500, preferredDistance: 410);
-            ConfigureSplit(editorAndProps, panel1MinSize: 420, panel2MinSize: 250, preferredDistance: editorAndProps.Width - 360);
-        }
-
-        static void ConfigureSplit(SplitContainer split, int panel1MinSize, int panel2MinSize, int preferredDistance)
-        {
-            int length = split.Orientation == Orientation.Vertical ? split.Width : split.Height;
-            if (length <= 0) return;
-
-            int maxPanelSpace = Math.Max(0, length - split.SplitterWidth);
-
-            int p1 = Math.Max(0, panel1MinSize);
-            int p2 = Math.Max(0, panel2MinSize);
-            if (p1 + p2 > maxPanelSpace)
-            {
-                if (p2 >= maxPanelSpace)
-                {
-                    p2 = maxPanelSpace;
-                    p1 = 0;
-                }
-                else
-                {
-                    p1 = maxPanelSpace - p2;
-                }
-            }
-
-            split.Panel1MinSize = p1;
-            split.Panel2MinSize = p2;
-
-            int minDistance = split.Panel1MinSize;
-            int maxDistance = Math.Max(minDistance, length - split.Panel2MinSize);
-            split.SplitterDistance = Math.Clamp(preferredDistance, minDistance, maxDistance);
-        }
-
-        return root;
     }
 
     private void UpdateEditorVisibility()
     {
-        if (_editorAndPropsSplit is null) return;
         _editorAndPropsSplit.Panel1Collapsed = _ruleTree.SelectedNode?.Tag is not RuleExpression;
     }
 
@@ -415,9 +362,9 @@ public sealed partial class MainForm : Form
         _categoryPropertiesView.Visible = ReferenceEquals(view, _categoryPropertiesView);
     }
 
-    private Control BuildLibraryPanel()
+    private void PopulateLibraryPanel(Panel host)
     {
-        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8), BackColor = Color.White };
+        host.Padding = new Padding(8);
         var title = new Label
         {
             Text = "Rule Library",
@@ -429,20 +376,18 @@ public sealed partial class MainForm : Form
 
         var searchHost = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(0, 4, 0, 4) };
         searchHost.Controls.Add(_treeSearchTextBox);
-        panel.Controls.Add(_ruleTree);
-        panel.Controls.Add(_libraryCountLabel);
-        panel.Controls.Add(searchHost);
-        panel.Controls.Add(title);
-        return panel;
+        host.Controls.Add(_ruleTree);
+        host.Controls.Add(_libraryCountLabel);
+        host.Controls.Add(searchHost);
+        host.Controls.Add(title);
     }
 
-    private Control BuildEditorPanel()
+    private void PopulateEditorPanel(Panel host)
     {
-        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12), BackColor = Color.White };
-        panel.Controls.Add(BuildResultDefinitionPanel());
-        panel.Controls.Add(BuildExpressionPanel());
-        panel.Controls.Add(_documentTabLabel);
-        return panel;
+        host.Padding = new Padding(12);
+        host.Controls.Add(BuildResultDefinitionPanel());
+        host.Controls.Add(BuildExpressionPanel());
+        host.Controls.Add(_documentTabLabel);
     }
 
     private Control BuildExpressionPanel()
@@ -481,7 +426,6 @@ public sealed partial class MainForm : Form
         };
         _expressionTextBox.Padding = new Padding(8);
         editorHost.Controls.Add(_expressionTextBox);
-        editorHost.Controls.Add(_intelliSenseListBox);
         editorHost.Controls.Add(lineNumbers);
 
         group.Controls.Add(editorHost);
@@ -511,9 +455,9 @@ public sealed partial class MainForm : Form
         return group;
     }
 
-    private Control BuildPropertiesPanel()
+    private void PopulatePropertiesPanel(Panel host)
     {
-        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(14, 10, 14, 8), BackColor = Color.White };
+        host.Padding = new Padding(14, 10, 14, 8);
         _propertiesViewHost = new Panel { Dock = DockStyle.Fill };
         _rulePropertiesView.Controls.Add(BuildRulePropertiesView());
         _libraryPropertiesView.Controls.Add(BuildLibraryPropertiesView());
@@ -525,9 +469,8 @@ public sealed partial class MainForm : Form
         _propertiesViewHost.Controls.Add(_contextPropertiesView);
         _propertiesViewHost.Controls.Add(_categoryPropertiesView);
 
-        panel.Controls.Add(_propertiesViewHost);
-        panel.Controls.Add(_propertiesTitleLabel);
-        return panel;
+        host.Controls.Add(_propertiesViewHost);
+        host.Controls.Add(_propertiesTitleLabel);
     }
 
     private Control BuildRulePropertiesView()
@@ -666,9 +609,8 @@ public sealed partial class MainForm : Form
         return scroll;
     }
 
-    private Control BuildErrorPanel()
+    private void PopulateErrorPanel(Panel host)
     {
-        var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
         var bar = new Panel { Dock = DockStyle.Top, Height = 40, Padding = new Padding(8, 7, 8, 5), BackColor = Color.WhiteSmoke };
         var label = new Label
         {
@@ -697,18 +639,16 @@ public sealed partial class MainForm : Form
         _errorList.Columns.Add("Line", 80);
         _errorList.Columns.Add("Column", 80);
 
-        panel.Controls.Add(_errorList);
-        panel.Controls.Add(bar);
-        return panel;
+        host.Controls.Add(_errorList);
+        host.Controls.Add(bar);
     }
 
-    private StatusStrip BuildStatusBar()
+    private void PopulateStatusBar(StatusStrip strip)
     {
-        _statusStrip.Items.Add(_readyStatusLabel);
-        _statusStrip.Items.Add(_libraryStatusLabel);
-        _statusStrip.Items.Add(new ToolStripStatusLabel("   "));
-        _statusStrip.Items.Add(_validationStatusLabel);
-        return _statusStrip;
+        strip.Items.Add(_readyStatusLabel);
+        strip.Items.Add(_libraryStatusLabel);
+        strip.Items.Add(new ToolStripStatusLabel("   "));
+        strip.Items.Add(_validationStatusLabel);
     }
 
     private static void AddRow(TableLayoutPanel table, int row, string labelText, Control control)
@@ -791,36 +731,20 @@ public sealed partial class MainForm : Form
     {
         _expressionTextBox.KeyUp += (_, e) =>
         {
-            if (e.KeyCode is Keys.Up or Keys.Down or Keys.Enter or Keys.Escape) return;
+            if (e.KeyCode is Keys.Up or Keys.Down or Keys.PageUp or Keys.PageDown
+                or Keys.Home or Keys.End or Keys.Enter or Keys.Tab or Keys.Escape) return;
             ShowIntelliSense();
         };
-        _expressionTextBox.KeyDown += (_, e) =>
-        {
-            if (!_intelliSenseListBox.Visible) return;
 
-            if (e.KeyCode == Keys.Down)
-            {
-                if (_intelliSenseListBox.SelectedIndex < _intelliSenseListBox.Items.Count - 1)
-                    _intelliSenseListBox.SelectedIndex++;
-                e.SuppressKeyPress = true;
-            }
-            else if (e.KeyCode == Keys.Up)
-            {
-                if (_intelliSenseListBox.SelectedIndex > 0) _intelliSenseListBox.SelectedIndex--;
-                e.SuppressKeyPress = true;
-            }
-            else if (e.KeyCode is Keys.Enter or Keys.Tab)
-            {
-                InsertIntelliSenseSelection();
-                e.SuppressKeyPress = true;
-            }
-            else if (e.KeyCode == Keys.Escape)
-            {
-                _intelliSenseListBox.Visible = false;
-                e.SuppressKeyPress = true;
-            }
-        };
-        _intelliSenseListBox.DoubleClick += (_, _) => InsertIntelliSenseSelection();
+        // Tab/Enter/arrows are intercepted by IntelliSensePopup.ProcessCmdKey while it's visible,
+        // mirroring how Visual Studio's completion controller owns commit/navigation keys. The
+        // popup raises CommitRequested / CancelRequested for us to act on, and key delivery is
+        // suppressed at the popup so no whitespace/newline leaks into the editor.
+        _intelliSensePopup.CommitRequested += (_, _) => InsertIntelliSenseSelection();
+        _intelliSensePopup.CancelRequested += (_, _) => HideIntelliSense();
+
+        Move += (_, _) => { if (_intelliSensePopup.Visible) RepositionIntelliSense(); };
+        Resize += (_, _) => { if (_intelliSensePopup.Visible) RepositionIntelliSense(); };
     }
 
     private void OnEditorChanged()
@@ -1019,46 +943,15 @@ public sealed partial class MainForm : Form
 
     private object DeserializeContextData(RuleContext context, string filePath, Type contextType)
     {
-        if (string.IsNullOrWhiteSpace(context.SerializerAssemblyPath)
-            || string.IsNullOrWhiteSpace(context.SerializerQualifiedTypeName))
-        {
-            return TestDataDialog.LoadObjectFromFile(filePath, contextType);
-        }
-
-        if (!File.Exists(context.SerializerAssemblyPath))
-        {
-            throw new FileNotFoundException("Serializer assembly not found.", context.SerializerAssemblyPath);
-        }
-
-        Assembly serializerAssembly = _typeDiscovery.LoadAssembly(context.SerializerAssemblyPath);
-        Type serializerType = ResolveTypeFromAssembly(serializerAssembly, context.SerializerQualifiedTypeName)
-            ?? throw new InvalidOperationException($"Serializer type '{context.SerializerQualifiedTypeName}' could not be resolved.");
-
-        MethodInfo deserializeMethod = serializerType.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public)
-            .FirstOrDefault(method => string.Equals(method.Name, "Deserialize", StringComparison.Ordinal)
-                                      && method.GetParameters() is [{ ParameterType: var parameterType }]
-                                      && parameterType == typeof(string)
-                                      && method.ReturnType != typeof(void))
-            ?? throw new InvalidOperationException($"Serializer type '{context.SerializerQualifiedTypeName}' must expose Deserialize(string filePath).");
-
-        object? serializer = deserializeMethod.IsStatic ? null : Activator.CreateInstance(serializerType);
-        object? result = deserializeMethod.Invoke(serializer, [filePath]);
-        if (result is null) throw new InvalidOperationException("Serializer deserialized to null.");
-
-        if (!contextType.IsInstanceOfType(result))
-        {
-            throw new InvalidOperationException(
-                $"Serializer returned '{result.GetType().FullName}', which is not assignable to context type '{contextType.FullName}'.");
-        }
-
-        return result;
-    }
-
-    private static Type? ResolveTypeFromAssembly(Assembly assembly, string typeName)
-    {
-        return assembly.GetType(typeName)
-            ?? assembly.GetTypes().FirstOrDefault(t => string.Equals(t.AssemblyQualifiedName, typeName, StringComparison.Ordinal)
-                || string.Equals(t.FullName, typeName, StringComparison.Ordinal));
+        // Delegate to the shared hydrator in NAIware.Rules so the editor and the Rule Service
+        // behave identically, including MISMO-style translator support. When no serializer is
+        // configured, the hydrator falls back to built-in JSON/XML deserialization.
+        var hydrator = new ModelHydrator(_typeDiscovery);
+        return hydrator.Hydrate(
+            ModelSource.FromFile(filePath),
+            contextType,
+            context.SerializerAssemblyPath,
+            context.SerializerQualifiedTypeName);
     }
 
     private void PopulateObjectGraph(string rootName, object root)
@@ -1356,7 +1249,13 @@ public sealed partial class MainForm : Form
             return;
         }
 
-        using var dialog = new TestDataDialog(contextType);
+        // Hydrate through the context's configured serializer/translator (e.g. a MISMO
+        // translator) when one is set; otherwise this falls back to built-in JSON/XML.
+        // Using the dialog's built-in XmlSerializer directly fails for MISMO documents
+        // ("There is an error in XML document (2,2)") because they don't map to the model.
+        using var dialog = new TestDataDialog(
+            contextType,
+            (filePath, type) => DeserializeContextData(context, filePath, type));
         if (dialog.ShowDialog(this) != DialogResult.OK || dialog.LoadedObject is null) return;
 
         try
@@ -1377,6 +1276,27 @@ public sealed partial class MainForm : Form
         try
         {
             _errorList.Items.Clear();
+
+            if (issues.Count == 0)
+            {
+                // Surface an explicit, positive confirmation row so a clean run is unmistakable
+                // rather than just an empty list (which can read as "validation didn't run").
+                var success = new ListViewItem("Success")
+                {
+                    ImageKey = "Success",
+                    ForeColor = Color.FromArgb(33, 145, 80),
+                    UseItemStyleForSubItems = true
+                };
+                success.SubItems.Add("Validation completed successfully. No errors or warnings were found.");
+                success.SubItems.Add(_library.Name ?? string.Empty);
+                success.SubItems.Add(string.Empty);
+                success.SubItems.Add(string.Empty);
+                success.SubItems.Add("-");
+                success.SubItems.Add("-");
+                _errorList.Items.Add(success);
+                return;
+            }
+
             foreach (ValidationIssue issue in issues)
             {
                 var item = new ListViewItem(issue.Severity) { ImageKey = issue.Severity, Tag = issue };
@@ -1621,44 +1541,77 @@ public sealed partial class MainForm : Form
         }
     }
 
+    private RuleCompletionResponse? _lastCompletion;
+
     private void ShowIntelliSense()
     {
         RuleContext? context = GetSelectedContext();
-        if (context is null) return;
-
-        string prefix = GetCurrentToken(_expressionTextBox.Text, _expressionTextBox.SelectionStart);
-        if (prefix.Length < 1)
+        if (context is null)
         {
-            _intelliSenseListBox.Visible = false;
+            HideIntelliSense();
             return;
         }
 
-        IReadOnlyList<string> suggestions = _intelliSense.GetSuggestions(context, prefix);
-        if (suggestions.Count == 0)
+        RuleCompletionResponse? response = _intelliSense.GetCompletions(
+            context,
+            _expressionTextBox.Text,
+            _expressionTextBox.SelectionStart);
+
+        if (response is null || response.Items.Count == 0)
         {
-            _intelliSenseListBox.Visible = false;
+            HideIntelliSense();
             return;
         }
+
+        _lastCompletion = response;
 
         _intelliSenseListBox.BeginUpdate();
         _intelliSenseListBox.Items.Clear();
-        foreach (string suggestion in suggestions) _intelliSenseListBox.Items.Add(suggestion);
+        foreach (RuleCompletionItem item in response.Items)
+        {
+            _intelliSenseListBox.Items.Add(item);
+        }
         _intelliSenseListBox.SelectedIndex = 0;
         _intelliSenseListBox.EndUpdate();
-        _intelliSenseListBox.Location = new Point(70, 36);
-        _intelliSenseListBox.BringToFront();
-        _intelliSenseListBox.Visible = true;
+
+        _intelliSensePopup.ShowAt(GetCaretScreenLocation(), _expressionTextBox);
+    }
+
+    private void HideIntelliSense()
+    {
+        if (_intelliSensePopup.Visible) _intelliSensePopup.Hide();
+    }
+
+    private void RepositionIntelliSense()
+    {
+        _intelliSensePopup.ShowAt(GetCaretScreenLocation(), _expressionTextBox);
+    }
+
+    private Point GetCaretScreenLocation()
+    {
+        int caretIndex = Math.Max(0, _expressionTextBox.SelectionStart);
+        Point clientPoint = _expressionTextBox.GetPositionFromCharIndex(caretIndex);
+        // GetPositionFromCharIndex returns the top of the character cell; offset by line height
+        // so the popup appears just below the caret instead of overlapping the current line.
+        int lineHeight = TextRenderer.MeasureText("Wg", _expressionTextBox.Font).Height;
+        clientPoint.Offset(0, lineHeight + 2);
+        return _expressionTextBox.PointToScreen(clientPoint);
     }
 
     private void InsertIntelliSenseSelection()
     {
-        if (!_intelliSenseListBox.Visible || _intelliSenseListBox.SelectedItem is not string suggestion) return;
-        int start = _expressionTextBox.SelectionStart;
-        string token = GetCurrentToken(_expressionTextBox.Text, start);
-        int replaceStart = Math.Max(0, start - token.Length);
-        _expressionTextBox.Text = _expressionTextBox.Text.Remove(replaceStart, token.Length).Insert(replaceStart, suggestion);
-        _expressionTextBox.SelectionStart = replaceStart + suggestion.Length;
-        _intelliSenseListBox.Visible = false;
+        if (!_intelliSensePopup.Visible || _intelliSenseListBox.SelectedItem is not RuleCompletionItem item) return;
+        if (_lastCompletion is null) return;
+
+        int start = _lastCompletion.ReplacementStart;
+        int length = _lastCompletion.ReplacementLength;
+        if (start < 0 || start > _expressionTextBox.Text.Length) start = _expressionTextBox.SelectionStart;
+        if (start + length > _expressionTextBox.Text.Length) length = Math.Max(0, _expressionTextBox.Text.Length - start);
+
+        string insertText = item.InsertText;
+        _expressionTextBox.Text = _expressionTextBox.Text.Remove(start, length).Insert(start, insertText);
+        _expressionTextBox.SelectionStart = start + insertText.Length;
+        HideIntelliSense();
     }
 
     private void InsertSelectedSuggestion(ComboBox comboBox)
@@ -1976,6 +1929,7 @@ public sealed partial class MainForm : Form
         _issueImages.Images.Add("Error", SeverityIcon("!", Color.FromArgb(210, 55, 48)));
         _issueImages.Images.Add("Warning", SeverityIcon("!", Color.Goldenrod));
         _issueImages.Images.Add("Info", SeverityIcon("i", Color.RoyalBlue));
+        _issueImages.Images.Add("Success", SeverityIcon("✓", Color.FromArgb(33, 145, 80)));
     }
 
     private static Image SeverityIcon(string glyph, Color color)

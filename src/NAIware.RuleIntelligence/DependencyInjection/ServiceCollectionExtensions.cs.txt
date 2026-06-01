@@ -1,0 +1,16 @@
+using Microsoft.Extensions.DependencyInjection;
+
+namespace NAIware.RuleIntelligence;
+
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddNAIwareRuleIntelligence(this IServiceCollection services)
+    {
+        services.AddSingleton<IRuleSchemaProvider, ObjectTreeRuleSchemaProvider>();
+        services.AddSingleton<IRuleOperatorProvider, DefaultRuleOperatorProvider>();
+        services.AddSingleton<IRuleValueSuggestionProvider, DefaultRuleValueSuggestionProvider>();
+        services.AddSingleton<IRuleIntelliSenseService, RuleIntelliSenseService>();
+        services.AddSingleton<RuleIntelligenceFacade>();
+        return services;
+    }
+}
