@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Robust MISMO 3.6 sample loan application used by the Rule Service integration tests.
+
+  This document is intentionally richer than sample-loan-application.xml so the
+  ComprehensiveMortgageRules library can exercise the full range of formula methods
+  and comparison rules:
+	* Two borrowers (primary + co-borrower) to test indexed/aggregate borrower rules.
+	* Multiple assets and liabilities to test collection counts and sums.
+	* Fully populated loan terms, transaction detail, and subject property.
+	* String fields (names, city, state) to test LEFT/RIGHT/UPPER/LOWER/TRIM/CONCAT.
+	* Numeric fields (amounts, rates, counts) to test MIN/MAX/ROUND/ABS/SUM/INT.
+
+  NOTE: Hydration is performed by Mortgage.Model.Translators.MISMO.MortgageFileMismoTranslator.
+  Only the elements that the translator maps are guaranteed to populate the domain model;
+  see ComprehensiveMortgageRules.json for the rules authored against the hydrated fields.
+-->
+<MESSAGE xmlns="http://www.mismo.org/residential/2009/schemas" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ABOUT_VERSIONS>
+	<ABOUT_VERSION>
+	  <CreatedDatetime>2026-06-01T09:30:00Z</CreatedDatetime>
+	  <VersionIdentifier>3.6.2</VersionIdentifier>
+	</ABOUT_VERSION>
+  </ABOUT_VERSIONS>
+  <DEAL_SETS>
+	<DEAL_SET>
+	  <DEALS>
+		<DEAL>
+		  <LOANS>
+			<LOAN>
+			  <LoanIdentifier>LN-20002</LoanIdentifier>
+			  <UniversalLoanIdentifier>ULI-2026-0002</UniversalLoanIdentifier>
+			  <LenderLoanIdentifier>LENDER-7788</LenderLoanIdentifier>
+			  <LOAN_DETAIL>
+				<LoanPurposeType>Purchase</LoanPurposeType>
+				<RequestedLoanAmount>680000</RequestedLoanAmount>
+				<NoteAmount>680000</NoteAmount>
+				<NoteRatePercent>6.375</NoteRatePercent>
+				<LoanTermMonthsCount>360</LoanTermMonthsCount>
+				<LoanAmortizationType>Fixed</LoanAmortizationType>
+			  </LOAN_DETAIL>
+			  <LOAN_APPLICATION>
+				<ApplicationDate>2026-06-01</ApplicationDate>
+				<PurchasePriceAmount>850000</PurchasePriceAmount>
+				<EstimatedClosingCostsAmount>14500</EstimatedClosingCostsAmount>
+				<CashFromBorrowerAmount>184500</CashFromBorrowerAmount>
+			  </LOAN_APPLICATION>
+			</LOAN>
+		  </LOANS>
+		  <PARTIES>
+			<PARTY SequenceNumber="P1">
+			  <INDIVIDUAL>
+				<FirstName>Marlon</FirstName>
+				<MiddleName>Antonio</MiddleName>
+				<LastName>Rabara</LastName>
+				<BirthDate>1974-02-09</BirthDate>
+				<CONTACT_POINTS>
+				  <CONTACT_POINT>
+					<ContactPointEmailValue>marlon@example.com</ContactPointEmailValue>
+					<ContactPointTelephoneValue>916-216-7139</ContactPointTelephoneValue>
+				  </CONTACT_POINT>
+				</CONTACT_POINTS>
+				<RESIDENCES>
+				  <RESIDENCE>
+					<ADDRESS>
+					  <AddressLineText>1375 Leonardo Way</AddressLineText>
+					  <CityName>Sacramento</CityName>
+					  <StateCode>CA</StateCode>
+					  <PostalCode>95835</PostalCode>
+					  <CountyName>Sacramento</CountyName>
+					  <CountryCode>US</CountryCode>
+					</ADDRESS>
+				  </RESIDENCE>
+				</RESIDENCES>
+			  </INDIVIDUAL>
+			  <ROLES>
+				<ROLE>
+				  <BORROWER>
+					<BorrowerRoleType>Borrower</BorrowerRoleType>
+					<DECLARATION>
+					  <BankruptcyIndicator>false</BankruptcyIndicator>
+					</DECLARATION>
+					<GOVERNMENT_MONITORING>
+					  <HMDA_ETHNICITIES>
+						<HMDA_ETHNICITY>
+						  <HMDAEthnicityType>NotHispanicOrLatino</HMDAEthnicityType>
+						</HMDA_ETHNICITY>
+					  </HMDA_ETHNICITIES>
+					  <HMDA_RACES>
+						<HMDA_RACE>
+						  <HMDARaceType>White</HMDARaceType>
+						</HMDA_RACE>
+					  </HMDA_RACES>
+					  <HMDASexType>Male</HMDASexType>
+					</GOVERNMENT_MONITORING>
+				  </BORROWER>
+				</ROLE>
+			  </ROLES>
+			</PARTY>
+			<PARTY SequenceNumber="P2">
+			  <INDIVIDUAL>
+				<FirstName>Maria</FirstName>
+				<MiddleName>Lourdes</MiddleName>
+				<LastName>Rabara</LastName>
+				<BirthDate>1976-11-22</BirthDate>
+				<CONTACT_POINTS>
+				  <CONTACT_POINT>
+					<ContactPointEmailValue>maria@example.com</ContactPointEmailValue>
+					<ContactPointTelephoneValue>916-216-8240</ContactPointTelephoneValue>
+				  </CONTACT_POINT>
+				</CONTACT_POINTS>
+				<RESIDENCES>
+				  <RESIDENCE>
+					<ADDRESS>
+					  <AddressLineText>1375 Leonardo Way</AddressLineText>
+					  <CityName>Sacramento</CityName>
+					  <StateCode>CA</StateCode>
+					  <PostalCode>95835</PostalCode>
+					  <CountyName>Sacramento</CountyName>
+					  <CountryCode>US</CountryCode>
+					</ADDRESS>
+				  </RESIDENCE>
+				</RESIDENCES>
+			  </INDIVIDUAL>
+			  <ROLES>
+				<ROLE>
+				  <BORROWER>
+					<BorrowerRoleType>CoBorrower</BorrowerRoleType>
+					<DECLARATION>
+					  <BankruptcyIndicator>false</BankruptcyIndicator>
+					</DECLARATION>
+					<GOVERNMENT_MONITORING>
+					  <HMDA_ETHNICITIES>
+						<HMDA_ETHNICITY>
+						  <HMDAEthnicityType>HispanicOrLatino</HMDAEthnicityType>
+						</HMDA_ETHNICITY>
+					  </HMDA_ETHNICITIES>
+					  <HMDA_RACES>
+						<HMDA_RACE>
+						  <HMDARaceType>White</HMDARaceType>
+						</HMDA_RACE>
+					  </HMDA_RACES>
+					  <HMDASexType>Female</HMDASexType>
+					</GOVERNMENT_MONITORING>
+				  </BORROWER>
+				</ROLE>
+			  </ROLES>
+			</PARTY>
+		  </PARTIES>
+		  <ASSETS>
+			<ASSET>
+			  <AssetType>CheckingAccount</AssetType>
+			  <AssetHolderName>Golden 1 Credit Union</AssetHolderName>
+			  <AssetAccountIdentifier>CHK-1234</AssetAccountIdentifier>
+			  <CashOrMarketValueAmount>48000</CashOrMarketValueAmount>
+			  <AssetDescription>Primary checking</AssetDescription>
+			</ASSET>
+			<ASSET>
+			  <AssetType>SavingsAccount</AssetType>
+			  <AssetHolderName>Golden 1 Credit Union</AssetHolderName>
+			  <AssetAccountIdentifier>SAV-5678</AssetAccountIdentifier>
+			  <CashOrMarketValueAmount>125000</CashOrMarketValueAmount>
+			  <AssetDescription>Joint savings</AssetDescription>
+			</ASSET>
+			<ASSET>
+			  <AssetType>RetirementFund</AssetType>
+			  <AssetHolderName>Fidelity</AssetHolderName>
+			  <AssetAccountIdentifier>RET-9012</AssetAccountIdentifier>
+			  <CashOrMarketValueAmount>240000</CashOrMarketValueAmount>
+			  <AssetDescription>401k</AssetDescription>
+			</ASSET>
+		  </ASSETS>
+		  <LIABILITIES>
+			<LIABILITY>
+			  <LiabilityType>Revolving</LiabilityType>
+			  <LiabilityHolderName>Visa</LiabilityHolderName>
+			  <LiabilityAccountIdentifier>CC-9876</LiabilityAccountIdentifier>
+			  <LiabilityUnpaidBalanceAmount>1500</LiabilityUnpaidBalanceAmount>
+			  <LiabilityMonthlyPaymentAmount>50</LiabilityMonthlyPaymentAmount>
+			</LIABILITY>
+			<LIABILITY>
+			  <LiabilityType>Installment</LiabilityType>
+			  <LiabilityHolderName>Toyota Financial</LiabilityHolderName>
+			  <LiabilityAccountIdentifier>AUTO-3344</LiabilityAccountIdentifier>
+			  <LiabilityUnpaidBalanceAmount>18250</LiabilityUnpaidBalanceAmount>
+			  <LiabilityMonthlyPaymentAmount>425</LiabilityMonthlyPaymentAmount>
+			</LIABILITY>
+		  </LIABILITIES>
+		  <COLLATERALS>
+			<COLLATERAL>
+			  <SUBJECT_PROPERTY>
+				<PropertyType>SingleFamily</PropertyType>
+				<PropertyUsageType>PrimaryResidence</PropertyUsageType>
+				<PropertyEstimatedValueAmount>850000</PropertyEstimatedValueAmount>
+				<FinancedUnitCount>1</FinancedUnitCount>
+				<ADDRESS>
+				  <AddressLineText>789 Vineyard Lane</AddressLineText>
+				  <CityName>El Dorado Hills</CityName>
+				  <CountyName>El Dorado</CountyName>
+				  <StateCode>CA</StateCode>
+				  <PostalCode>95762</PostalCode>
+				  <CountryCode>US</CountryCode>
+				</ADDRESS>
+			  </SUBJECT_PROPERTY>
+			</COLLATERAL>
+		  </COLLATERALS>
+		</DEAL>
+	  </DEALS>
+	</DEAL_SET>
+  </DEAL_SETS>
+</MESSAGE>

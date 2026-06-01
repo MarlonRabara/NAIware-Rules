@@ -277,6 +277,12 @@ public sealed class RuleValidationService
                 ? token[(metadata.Type.Name.Length + 1)..]
                 : token;
 
+            // Enum literals (e.g. "LoanPurposeType.Refinance") appear as comparison operands, not
+            // property paths. The runtime engine resolves these via GenericEnumeration, so the
+            // validator must recognize them too rather than treating them as unresolved properties.
+            if (IsEnumLiteral(metadata.Type, token))
+                continue;
+
             if (ResolvePropertyType(metadata.Type, path, context.Name) is null)
             {
                 issues.Add(Error(context, category, rule,
@@ -306,12 +312,89 @@ public sealed class RuleValidationService
             Type? leftType = ResolvePropertyType(metadata.Type, path, context.Name);
             if (leftType is null) continue; // Already reported by ValidatePropertyPaths.
 
+            // An enum literal right operand (e.g. "LoanPurposeType.Refinance") is type-compatible when
+            // the left operand is the matching enum. The ComparisonPattern does not capture dotted
+            // right operands, so this is handled here against the qualified-enum form.
+            Type? leftEnum = Nullable.GetUnderlyingType(leftType) ?? leftType;
+            if (leftEnum.IsEnum
+                && right.StartsWith(leftEnum.Name + ".", StringComparison.Ordinal)
+                && op is "=" or "!=" or "<>")
+            {
+                continue;
+            }
+
             Type rightType = InferLiteralType(right);
             if (!AreCompatible(leftType, rightType, op))
             {
                 issues.Add(Error(context, category, rule,
                     $"Type mismatch: '{left}' ({FriendlyName(leftType)}) cannot be compared to '{right}' " +
                     $"({FriendlyName(rightType)}) using operator '{op}'."));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Determines whether a dotted token is a qualified enum literal (e.g. <c>LoanPurposeType.Refinance</c>)
+    /// reachable from the model's property graph. This mirrors how the runtime engine resolves enum
+    /// operands via <c>GenericEnumeration</c>, so the validator does not misreport them as property paths.
+    /// </summary>
+    private static bool IsEnumLiteral(Type rootType, string token)
+    {
+        int lastDot = token.LastIndexOf('.');
+        if (lastDot <= 0) return false;
+
+        string typeName = token[..lastDot];
+        string memberName = token[(lastDot + 1)..];
+
+        // The qualifier must be a single, simple type name (no further dots) and the member must be a
+        // defined value of an enum type used somewhere in the model graph.
+        if (typeName.Contains('.')) return false;
+
+        foreach (Type enumType in EnumerateModelEnumTypes(rootType, new HashSet<Type>()))
+        {
+            if (string.Equals(enumType.Name, typeName, StringComparison.Ordinal)
+                && Enum.IsDefined(enumType, memberName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Walks the model's property graph (to a bounded depth) and yields every distinct enum type it
+    /// references, including enum element types of generic collections.
+    /// </summary>
+    private static IEnumerable<Type> EnumerateModelEnumTypes(Type rootType, HashSet<Type> visited, int depth = 0)
+    {
+        if (depth > 8 || !visited.Add(rootType)) yield break;
+
+        foreach (System.Reflection.PropertyInfo property in rootType.GetProperties())
+        {
+            Type propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+
+            // Unwrap generic collection element types so enums inside lists are discovered.
+            if (propertyType != typeof(string)
+                && typeof(System.Collections.IEnumerable).IsAssignableFrom(propertyType)
+                && propertyType.IsGenericType)
+            {
+                propertyType = propertyType.GetGenericArguments()[0];
+            }
+
+            if (propertyType.IsEnum)
+            {
+                yield return propertyType;
+            }
+            else if (!propertyType.IsPrimitive
+                     && propertyType != typeof(string)
+                     && propertyType != typeof(decimal)
+                     && propertyType != typeof(DateTime)
+                     && propertyType != typeof(Guid)
+                     && !propertyType.IsValueType)
+            {
+                foreach (Type nested in EnumerateModelEnumTypes(propertyType, visited, depth + 1))
+                    yield return nested;
             }
         }
     }
@@ -329,10 +412,29 @@ public sealed class RuleValidationService
                 continue;
             }
 
-            // Indexed collection element access via dot-notation integer: "Borrowers.0" or "Count".
+            // Determine whether the current type is a generic collection. Unwrapping is deferred to
+            // here (rather than eagerly at the end of the previous iteration) so collection-level
+            // members such as ".Count" remain resolvable against the collection itself. This mirrors
+            // ParameterFactory, which emits a "{collection}.Count" parameter and "{collection}.{i}.{member}"
+            // element parameters.
+            bool currentIsCollection = current != typeof(string)
+                && typeof(System.Collections.IEnumerable).IsAssignableFrom(current)
+                && current.IsGenericType;
+
+            // Collection-level "Count" maps to the synthetic int parameter created by ParameterFactory.
+            // Resolve it directly to avoid interface-inheritance reflection quirks (Count is declared on
+            // IReadOnlyCollection<T>/ICollection<T>, not always discoverable via GetProperty on the
+            // declared interface type).
+            if (currentIsCollection && string.Equals(cleanPropertyPath, "Count", StringComparison.Ordinal))
+            {
+                current = typeof(int);
+                continue;
+            }
+
+            // Indexed collection element access via dot-notation integer: "Borrowers.0".
             if (int.TryParse(cleanPropertyPath, out _))
             {
-                if (current != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(current) && current.IsGenericType)
+                if (currentIsCollection)
                 {
                     current = current.GetGenericArguments()[0];
                     continue;
@@ -340,17 +442,17 @@ public sealed class RuleValidationService
                 return null;
             }
 
+            // A member name following a collection (without an index) resolves against the element type,
+            // e.g. "Borrowers.FirstName".
+            if (currentIsCollection)
+            {
+                current = current.GetGenericArguments()[0];
+            }
+
             System.Reflection.PropertyInfo? property = current.GetProperty(cleanPropertyPath);
             if (property is null) return null;
 
             current = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-
-            if (current != typeof(string)
-                && typeof(System.Collections.IEnumerable).IsAssignableFrom(current)
-                && current.IsGenericType)
-            {
-                current = current.GetGenericArguments()[0];
-            }
         }
 
         return current;
